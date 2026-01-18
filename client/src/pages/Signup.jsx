@@ -32,9 +32,9 @@ const Signup = () => {
         <div className="login-container">
             <div className="login-card">
                 <div className="login-header">
-                    <div className="logo-icon">
+                    {/* <div className="logo-icon">
                         <UserPlus size={32} />
-                    </div>
+                    </div> */}
                     <h1>Create Account</h1>
                     <p>Join Mini-Analyst to start your analytics journey</p>
                 </div>

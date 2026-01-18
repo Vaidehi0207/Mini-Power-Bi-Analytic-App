@@ -1,0 +1,16 @@
+id,medicine_id,name,category,supplier_id,cost_price,unit_price,stock_qty,expiry_date,manufacture_date,batch_number,reorder_level,supplier_name,expiry_date_year,expiry_date_month,manufacture_date_year,manufacture_date_month
+1,MED001,Paracetamol,Pain Relief,SUP001,2.5,5,500,2024-12-31,2023-01-15,BT12345,100,MediPharm Distributors,2024,December,2023,January
+2,MED002,Amoxicillin,Antibiotic,SUP002,5.0,10,300,2024-06-30,2023-02-20,BT23456,50,HealthCare Supplies,2024,June,2023,February
+3,MED003,Omeprazole,Antacid,SUP003,4.0,8,400,2025-03-31,2023-03-10,BT34567,75,MediCore Enterprises,2025,March,2023,March
+4,MED004,Loratadine,Antihistamine,SUP001,3.0,6,350,2024-09-30,2023-01-25,BT45678,60,MediPharm Distributors,2024,September,2023,January
+5,MED005,Metformin,Antidiabetic,SUP002,3.5,7,250,2024-08-31,2023-02-15,BT56789,40,HealthCare Supplies,2024,August,2023,February
+6,MED006,Atorvastatin,Cholesterol,SUP003,6.0,12,200,2024-07-31,2023-03-05,BT67890,35,MediCore Enterprises,2024,July,2023,March
+7,MED007,Salbutamol,Bronchodilator,SUP001,4.5,9,180,2024-11-30,2023-01-30,BT78901,30,MediPharm Distributors,2024,November,2023,January
+8,MED008,Amlodipine,Antihypertensive,SUP002,5.5,11,220,2024-10-31,2023-02-25,BT89012,40,HealthCare Supplies,2024,October,2023,February
+9,MED009,Diazepam,Sedative,SUP003,7.0,14,150,2024-05-31,2023-03-15,BT90123,25,MediCore Enterprises,2024,May,2023,March
+10,MED010,Insulin,Antidiabetic,SUP001,15.0,30,100,2024-04-30,2023-01-20,BT01234,20,MediPharm Distributors,2024,April,2023,January
+11,MED011,Ibuprofen,Pain Relief,SUP002,3.0,6,450,2025-01-31,2023-02-10,BT12345,90,HealthCare Supplies,2025,January,2023,February
+12,MED012,Cetirizine,Antihistamine,SUP003,2.5,5,380,2024-08-31,2023-03-20,BT23456,70,MediCore Enterprises,2024,August,2023,March
+13,MED013,Ceftriaxone,Antibiotic,SUP001,8.0,16,120,2024-03-31,2023-01-10,BT34567,20,MediPharm Distributors,2024,March,2023,January
+14,MED014,Simvastatin,Cholesterol,SUP002,5.5,11,180,2025-02-28,2023-02-05,BT45678,30,HealthCare Supplies,2025,February,2023,February
+15,MED015,Ranitidine,Antacid,SUP003,4.0,8,250,2024-06-30,2023-03-25,BT56789,45,MediCore Enterprises,2024,June,2023,March

@@ -1,0 +1,211 @@
+bill_id,patient_id,payment_status,payment_method,charge_type,value
+BILL001,P001,Paid,Cash,Surgery,0
+BILL001,P001,Paid,Cash,Discount,0
+BILL002,P002,Paid,Credit Card,Surgery,0
+BILL002,P002,Paid,Credit Card,Test,0
+BILL002,P002,Paid,Credit Card,Discount,0
+BILL003,P003,Paid,Insurance,Discount,0
+BILL004,P004,Paid,Cash,Surgery,0
+BILL004,P004,Paid,Cash,Test,0
+BILL004,P004,Paid,Cash,Discount,0
+BILL006,P006,Paid,Credit Card,Surgery,0
+BILL006,P006,Paid,Credit Card,Test,0
+BILL006,P006,Paid,Credit Card,Discount,0
+BILL007,P007,Paid,Insurance,Room,0
+BILL007,P007,Paid,Insurance,Surgery,0
+BILL007,P007,Paid,Insurance,Other,0
+BILL007,P007,Paid,Insurance,Discount,0
+BILL008,P008,Paid,Cash,Surgery,0
+BILL008,P008,Paid,Cash,Test,0
+BILL009,P009,Paid,Credit Card,Discount,0
+BILL010,P010,Paid,Insurance,Room,0
+BILL010,P010,Paid,Insurance,Surgery,0
+BILL010,P010,Paid,Insurance,Test,0
+BILL010,P010,Paid,Insurance,Other,0
+BILL010,P010,Paid,Insurance,Discount,0
+BILL012,P012,Paid,Credit Card,Surgery,0
+BILL012,P012,Paid,Credit Card,Test,0
+BILL013,P013,Paid,Insurance,Room,0
+BILL013,P013,Paid,Insurance,Surgery,0
+BILL013,P013,Paid,Insurance,Other,0
+BILL013,P013,Paid,Insurance,Discount,0
+BILL014,P014,Paid,Cash,Surgery,0
+BILL014,P014,Paid,Cash,Test,0
+BILL014,P014,Paid,Cash,Discount,0
+BILL015,P015,Paid,Insurance,Discount,0
+BILL016,P016,Paid,Credit Card,Surgery,0
+BILL016,P016,Paid,Credit Card,Test,0
+BILL016,P016,Paid,Credit Card,Discount,0
+BILL017,P017,Paid,Cash,Room,0
+BILL017,P017,Paid,Cash,Surgery,0
+BILL017,P017,Paid,Cash,Other,0
+BILL018,P018,Paid,Insurance,Surgery,0
+BILL018,P018,Paid,Insurance,Test,0
+BILL018,P018,Paid,Insurance,Discount,0
+BILL020,P020,Paid,Cash,Room,0
+BILL020,P020,Paid,Cash,Surgery,0
+BILL020,P020,Paid,Cash,Test,0
+BILL020,P020,Paid,Cash,Other,0
+BILL020,P020,Paid,Cash,Discount,0
+BILL021,P021,Paid,Insurance,Discount,0
+BILL022,P022,Paid,Credit Card,Surgery,0
+BILL022,P022,Paid,Credit Card,Test,0
+BILL022,P022,Paid,Credit Card,Discount,0
+BILL023,P023,Paid,Cash,Room,0
+BILL023,P023,Paid,Cash,Surgery,0
+BILL023,P023,Paid,Cash,Other,0
+BILL023,P023,Paid,Cash,Discount,0
+BILL024,P024,Paid,Insurance,Surgery,0
+BILL024,P024,Paid,Insurance,Test,0
+BILL025,P025,Paid,Credit Card,Discount,0
+BILL026,P026,Paid,Cash,Room,0
+BILL026,P026,Paid,Cash,Surgery,0
+BILL026,P026,Paid,Cash,Test,0
+BILL026,P026,Paid,Cash,Other,0
+BILL026,P026,Paid,Cash,Discount,0
+BILL028,P028,Paid,Credit Card,Surgery,0
+BILL028,P028,Paid,Credit Card,Test,0
+BILL028,P028,Paid,Credit Card,Discount,0
+BILL029,P029,Paid,Cash,Room,0
+BILL029,P029,Paid,Cash,Surgery,0
+BILL029,P029,Paid,Cash,Other,0
+BILL029,P029,Paid,Cash,Discount,0
+BILL030,P030,Paid,Insurance,Surgery,0
+BILL030,P030,Paid,Insurance,Test,0
+BILL030,P030,Paid,Insurance,Discount,0
+BILL001,P001,Paid,Cash,Room,5000
+BILL001,P001,Paid,Cash,Medicine,410
+BILL001,P001,Paid,Cash,Test,2800
+BILL001,P001,Paid,Cash,Fees,800
+BILL001,P001,Paid,Cash,Other,1000
+BILL002,P002,Paid,Credit Card,Room,7000
+BILL002,P002,Paid,Credit Card,Medicine,160
+BILL002,P002,Paid,Credit Card,Fees,700
+BILL002,P002,Paid,Credit Card,Other,500
+BILL003,P003,Paid,Insurance,Room,10000
+BILL003,P003,Paid,Insurance,Surgery,25000
+BILL003,P003,Paid,Insurance,Medicine,260
+BILL003,P003,Paid,Insurance,Test,5000
+BILL003,P003,Paid,Insurance,Fees,850
+BILL003,P003,Paid,Insurance,Other,2000
+BILL004,P004,Paid,Cash,Room,8000
+BILL004,P004,Paid,Cash,Medicine,55
+BILL004,P004,Paid,Cash,Fees,650
+BILL004,P004,Paid,Cash,Other,500
+BILL005,P005,Paid,Insurance,Room,10000
+BILL005,P005,Paid,Insurance,Surgery,75000
+BILL005,P005,Paid,Insurance,Medicine,180
+BILL005,P005,Paid,Insurance,Test,2500
+BILL005,P005,Paid,Insurance,Fees,800
+BILL005,P005,Paid,Insurance,Other,3000
+BILL005,P005,Paid,Insurance,Discount,5000
+BILL006,P006,Paid,Credit Card,Room,4000
+BILL006,P006,Paid,Credit Card,Medicine,70
+BILL006,P006,Paid,Credit Card,Fees,700
+BILL006,P006,Paid,Credit Card,Other,500
+BILL007,P007,Paid,Insurance,Medicine,405
+BILL007,P007,Paid,Insurance,Test,5000
+BILL007,P007,Paid,Insurance,Fees,850
+BILL008,P008,Paid,Cash,Room,7000
+BILL008,P008,Paid,Cash,Medicine,130
+BILL008,P008,Paid,Cash,Fees,900
+BILL008,P008,Paid,Cash,Other,500
+BILL008,P008,Paid,Cash,Discount,100
+BILL009,P009,Paid,Credit Card,Room,10000
+BILL009,P009,Paid,Credit Card,Surgery,50000
+BILL009,P009,Paid,Credit Card,Medicine,140
+BILL009,P009,Paid,Credit Card,Test,3300
+BILL009,P009,Paid,Credit Card,Fees,750
+BILL009,P009,Paid,Credit Card,Other,2000
+BILL010,P010,Paid,Insurance,Medicine,160
+BILL010,P010,Paid,Insurance,Fees,600
+BILL011,P011,Paid,Cash,Room,7000
+BILL011,P011,Paid,Cash,Surgery,35000
+BILL011,P011,Paid,Cash,Medicine,160
+BILL011,P011,Paid,Cash,Test,2800
+BILL011,P011,Paid,Cash,Fees,900
+BILL011,P011,Paid,Cash,Other,1500
+BILL011,P011,Paid,Cash,Discount,2000
+BILL012,P012,Paid,Credit Card,Room,5000
+BILL012,P012,Paid,Credit Card,Medicine,140
+BILL012,P012,Paid,Credit Card,Fees,650
+BILL012,P012,Paid,Credit Card,Other,500
+BILL012,P012,Paid,Credit Card,Discount,50
+BILL013,P013,Paid,Insurance,Medicine,70
+BILL013,P013,Paid,Insurance,Test,5000
+BILL013,P013,Paid,Insurance,Fees,1200
+BILL014,P014,Paid,Cash,Room,7000
+BILL014,P014,Paid,Cash,Medicine,60
+BILL014,P014,Paid,Cash,Fees,700
+BILL014,P014,Paid,Cash,Other,500
+BILL015,P015,Paid,Insurance,Room,8000
+BILL015,P015,Paid,Insurance,Surgery,60000
+BILL015,P015,Paid,Insurance,Medicine,360
+BILL015,P015,Paid,Insurance,Test,2300
+BILL015,P015,Paid,Insurance,Fees,850
+BILL015,P015,Paid,Insurance,Other,2500
+BILL016,P016,Paid,Credit Card,Room,9000
+BILL016,P016,Paid,Credit Card,Medicine,570
+BILL016,P016,Paid,Credit Card,Fees,800
+BILL016,P016,Paid,Credit Card,Other,1000
+BILL017,P017,Paid,Cash,Medicine,170
+BILL017,P017,Paid,Cash,Test,2600
+BILL017,P017,Paid,Cash,Fees,900
+BILL017,P017,Paid,Cash,Discount,100
+BILL018,P018,Paid,Insurance,Room,5000
+BILL018,P018,Paid,Insurance,Medicine,120
+BILL018,P018,Paid,Insurance,Fees,700
+BILL018,P018,Paid,Insurance,Other,500
+BILL019,P019,Paid,Credit Card,Room,10000
+BILL019,P019,Paid,Credit Card,Surgery,20000
+BILL019,P019,Paid,Credit Card,Medicine,160
+BILL019,P019,Paid,Credit Card,Test,2800
+BILL019,P019,Paid,Credit Card,Fees,850
+BILL019,P019,Paid,Credit Card,Other,1500
+BILL019,P019,Paid,Credit Card,Discount,1000
+BILL020,P020,Paid,Cash,Medicine,180
+BILL020,P020,Paid,Cash,Fees,800
+BILL021,P021,Paid,Insurance,Room,9000
+BILL021,P021,Paid,Insurance,Surgery,55000
+BILL021,P021,Paid,Insurance,Medicine,330
+BILL021,P021,Paid,Insurance,Test,6500
+BILL021,P021,Paid,Insurance,Fees,950
+BILL021,P021,Paid,Insurance,Other,2000
+BILL022,P022,Paid,Credit Card,Room,7000
+BILL022,P022,Paid,Credit Card,Medicine,40
+BILL022,P022,Paid,Credit Card,Fees,500
+BILL022,P022,Paid,Credit Card,Other,500
+BILL023,P023,Paid,Cash,Medicine,90
+BILL023,P023,Paid,Cash,Test,1000
+BILL023,P023,Paid,Cash,Fees,900
+BILL024,P024,Paid,Insurance,Room,10000
+BILL024,P024,Paid,Insurance,Medicine,65
+BILL024,P024,Paid,Insurance,Fees,750
+BILL024,P024,Paid,Insurance,Other,1000
+BILL024,P024,Paid,Insurance,Discount,50
+BILL025,P025,Paid,Credit Card,Room,10000
+BILL025,P025,Paid,Credit Card,Surgery,40000
+BILL025,P025,Paid,Credit Card,Medicine,360
+BILL025,P025,Paid,Credit Card,Test,3300
+BILL025,P025,Paid,Credit Card,Fees,800
+BILL025,P025,Paid,Credit Card,Other,2000
+BILL026,P026,Paid,Cash,Medicine,140
+BILL026,P026,Paid,Cash,Fees,900
+BILL027,P027,Paid,Insurance,Room,10000
+BILL027,P027,Paid,Insurance,Surgery,70000
+BILL027,P027,Paid,Insurance,Medicine,160
+BILL027,P027,Paid,Insurance,Test,4500
+BILL027,P027,Paid,Insurance,Fees,1200
+BILL027,P027,Paid,Insurance,Other,3000
+BILL027,P027,Paid,Insurance,Discount,5000
+BILL028,P028,Paid,Credit Card,Room,8000
+BILL028,P028,Paid,Credit Card,Medicine,75
+BILL028,P028,Paid,Credit Card,Fees,650
+BILL028,P028,Paid,Credit Card,Other,500
+BILL029,P029,Paid,Cash,Medicine,225
+BILL029,P029,Paid,Cash,Test,2600
+BILL029,P029,Paid,Cash,Fees,900
+BILL030,P030,Paid,Insurance,Room,8000
+BILL030,P030,Paid,Insurance,Medicine,60
+BILL030,P030,Paid,Insurance,Fees,800
+BILL030,P030,Paid,Insurance,Other,1000

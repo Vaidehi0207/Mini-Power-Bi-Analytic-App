@@ -29,9 +29,9 @@ const Login = () => {
         <div className="login-container">
             <div className="login-card">
                 <div className="login-header">
-                    <div className="logo-icon">
+                    {/* <div className="logo-icon">
                         <LogIn size={32} />
-                    </div>
+                    </div> */}
                     <h1>Welcome Back</h1>
                     <p>Enter your details to access your analytics</p>
                 </div>

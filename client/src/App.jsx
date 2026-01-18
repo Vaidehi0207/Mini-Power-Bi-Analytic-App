@@ -7,6 +7,8 @@ import Signup from './pages/Signup';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 
+import About from './pages/About';
+
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -26,6 +28,7 @@ function App() {
         <Router>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/about" element={<About />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/dashboard" element={

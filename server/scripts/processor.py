@@ -25,7 +25,7 @@ def process_file(file_path, output_path):
         def get_sample(dframe):
             try:
                 # Convert to JSON and back to getting serializable dicts (handles dates etc)
-                return json.loads(dframe.head(5).to_json(orient='records', date_format='iso'))
+                return json.loads(dframe.head(2000).to_json(orient='records', date_format='iso'))
             except:
                 return []
 

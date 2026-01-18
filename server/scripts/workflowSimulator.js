@@ -6,7 +6,7 @@ const fs = require('fs');
  * Alteryx Gallery API Simulator (AEP)
  * Mimics a real-world Alteryx Workflow execution.
  */
-const simulateAlteryxAPI = async (filename, inputPath) => {
+const simulateAlteryxAPI = async (filename, inputPath, outputPath) => {
     // Simulating API Latency
     await new Promise(resolve => setTimeout(resolve, 3500));
 
@@ -14,7 +14,8 @@ const simulateAlteryxAPI = async (filename, inputPath) => {
     let realAudit = null;
     if (inputPath && fs.existsSync(inputPath)) {
         try {
-            const tempOut = path.join('processed_data', `temp-premium-${Date.now()}.csv`);
+            // Use the actual output path if provided, otherwise temp
+            const targetOut = outputPath || path.join('processed_data', `temp-premium-${Date.now()}.csv`);
 
             // Detect Python Path
             const venvPath = path.join(__dirname, '../../.venv/Scripts/python.exe');
@@ -24,13 +25,14 @@ const simulateAlteryxAPI = async (filename, inputPath) => {
                 const py = spawn(pythonCmd, [
                     path.join(__dirname, 'processor.py'),
                     inputPath,
-                    tempOut
+                    targetOut
                 ]);
                 let out = '';
                 py.stdout.on('data', (d) => out += d.toString());
                 py.on('close', () => {
                     try { resolve(JSON.parse(out)); } catch { resolve(null); }
-                    if (fs.existsSync(tempOut)) fs.unlinkSync(tempOut);
+                    // Do NOT delete the file if we want it to be downloadable
+                    // if (fs.existsSync(tempOut)) fs.unlinkSync(tempOut);
                 });
             });
 

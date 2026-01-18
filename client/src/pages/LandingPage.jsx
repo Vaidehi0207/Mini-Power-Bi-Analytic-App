@@ -22,14 +22,14 @@ const LandingPage = () => {
         <div className={`landing-container ${isDarkMode ? 'dark' : 'light'}`}>
             {/* Navigation Header */}
             <nav className="landing-nav">
-                <div className="nav-logo">
-                    <Database size={24} className="logo-icon" />
-                    <span>ANTI-GRAVITY</span>
+                <div className="nav-logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+                    {/* <Database size={24} className="logo-icon" /> */}
+                    <span>MiniBI</span>
                 </div>
 
                 <div className={`nav-links ${isMenuOpen ? 'mobile-open' : ''}`}>
                     <a href="#features">Features</a>
-                    <a href="#process">Process</a>
+                    <a onClick={() => navigate('/about')} style={{ cursor: 'pointer' }}>About Us</a>
                     <a href="#success">Success</a>
                     <button className="theme-toggle" onClick={toggleTheme}>
                         {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
@@ -58,8 +58,8 @@ const LandingPage = () => {
                     <Zap size={14} /> <span>The new era of analytics is here</span>
                 </div>
                 <h1 className="hero-title">
-                    Own the <br />
-                    <span className="gradient-text">Digital Narrative.</span>
+                    Transform <br />
+                    <span className="gradient-text">Data into Decisions.</span>
                 </h1>
                 <p className="hero-subtitle">
                     Everything you need to dominate. <br />
@@ -69,7 +69,7 @@ const LandingPage = () => {
                     <button className="cta-btn primary" onClick={handleAction}>
                         Get your visualizations <ArrowRight size={18} />
                     </button>
-                    <button className="cta-btn secondary">Explore Network <ArrowRight size={18} /> </button>
+                    {/* <button className="cta-btn secondary">Explore Network <ArrowRight size={18} /> </button> */}
                 </div>
             </section>
 
@@ -81,9 +81,11 @@ const LandingPage = () => {
                         <span className="text-accent">Digital Elite.</span>
                     </h2>
                     <p className="section-subtitle-large">Real results from companies scaling at light speed.</p>
-                    <button className="cta-btn outline mt-4" onClick={() => document.getElementById('success').scrollIntoView({ behavior: 'smooth' })}>
-                        See Success Stories <ArrowRight size={18} />
-                    </button>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <button className="cta-btn outline mt-4" onClick={() => document.getElementById('success').scrollIntoView({ behavior: 'smooth' })}>
+                            See Success Stories <ArrowRight size={18} />
+                        </button>
+                    </div>
                 </div>
             </section>
 
@@ -156,8 +158,8 @@ const LandingPage = () => {
                 <div className="footer-content">
                     <div className="footer-brand">
                         <div className="nav-logo">
-                            <Database size={24} className="logo-icon" />
-                            <span>ANTI-GRAVITY</span>
+                            {/* <Database size={24} className="logo-icon" /> */}
+                            <span>MiniBI</span>
                         </div>
                         <p>High-fidelity data engineering for the modern enterprise.</p>
                     </div>
@@ -170,7 +172,7 @@ const LandingPage = () => {
                         </div>
                         <div className="footer-col">
                             <h4>Company</h4>
-                            <a href="#">About Us</a>
+                            <a onClick={() => navigate('/about')} style={{ cursor: 'pointer' }}>About Us</a>
                             <a href="#">Careers</a>
                             <a href="#">Contact</a>
                         </div>
@@ -183,7 +185,7 @@ const LandingPage = () => {
                     </div>
                 </div>
                 <div className="footer-bottom">
-                    <p>© 2026 Anti-Gravity Engineering. All rights reserved. <span className="footer-dot">•</span> <a href="#">Privacy</a> <span className="footer-dot">•</span> <a href="#">Terms</a></p>
+                    <p>© 2026 MiniBI Engineering. All rights reserved. <span className="footer-dot">•</span> <a href="#">Privacy</a> <span className="footer-dot">•</span> <a href="#">Terms</a></p>
                 </div>
             </footer>
         </div>

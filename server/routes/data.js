@@ -40,7 +40,7 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
         }
 
         const inputPath = req.file.path;
-        const outFilename = `processed-${req.file.filename.split('.')[0]}.csv`;
+        const outFilename = `processed-${path.parse(req.file.filename).name}.csv`;
         const outputPath = path.join('processed_data', outFilename);
 
         // Ensure processed_data directory exists
@@ -69,7 +69,7 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
             console.log(`🚀 API Request sent to Alteryx Gallery for: ${file.originalName}`);
 
             // Option 1: Alteryx Engine API (AEP) - Calling our Simulator Service
-            simulateAlteryxAPI(file.originalName, inputPath).then(async (apiResult) => {
+            simulateAlteryxAPI(file.originalName, inputPath, outputPath).then(async (apiResult) => {
                 file.status = 'completed';
                 file.auditLogs = apiResult.audit;
                 file.processingLogs = `Alteryx Job ID: ${apiResult.jobId}\nWorkflow: ${apiResult.workflow}\nStatus: ${apiResult.status}`;
@@ -202,7 +202,9 @@ router.get('/download/:id', auth, async (req, res) => {
         const candidates = [
             `processed-${parsedStored.name}.csv`,
             `processed-${file.filename}`,
-            `processed-${parsedOriginal.name}.csv`
+            `processed-${parsedOriginal.name}.csv`,
+            // Legacy fallback for files created with split('.')[0]
+            `processed-${file.filename.split('.')[0]}.csv`
         ];
 
         let finalOutputPath = null;

@@ -4,8 +4,9 @@ import { useTheme } from '../context/ThemeContext';
 import FileUpload from '../components/FileUpload';
 import PowerBIDashboard from '../components/PowerBIDashboard';
 import DataReport from '../components/DataReport';
+import ErrorBoundary from '../components/ErrorBoundary'; // Import ErrorBoundary
 import api from '../api/axios';
-import { Database, Clock, FileText, Info, Trash2, Sun, Moon, LogOut, LayoutDashboard, Share2 } from 'lucide-react';
+import { Database, Clock, FileText, Info, Trash2, Sun, Moon, LogOut, LayoutDashboard, Share2, ChevronRight } from 'lucide-react';
 
 const Dashboard = () => {
     const { user, logout } = useAuth();
@@ -73,27 +74,37 @@ const Dashboard = () => {
         return () => clearInterval(interval);
     }, []);
 
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
+
     if (isPBIOpen) {
-        return <PowerBIDashboard files={pbiFiles} onClose={() => setIsPBIOpen(false)} />;
+        return (
+            <ErrorBoundary>
+                <PowerBIDashboard files={pbiFiles} onClose={() => setIsPBIOpen(false)} />
+            </ErrorBoundary>
+        );
     }
 
     if (isReportOpen) {
         return <DataReport file={selectedFile} onClose={() => setIsReportOpen(false)} onExplorePBI={() => openPBI([selectedFile])} />;
     }
 
+    const navigate = (path) => { window.location.href = path }; // Simplified for dashboard if no router prop, but usually we use useNavigate from react-router-dom
+
     return (
         <div className={`dashboard-root ${isDarkMode ? 'dark' : 'light'}`}>
             <header className="dashboard-header">
-                <div className="header-brand">
-                    <Database size={28} className="text-accent" />
+                <div className="header-brand" onClick={() => window.location.href = '/'} style={{ cursor: 'pointer' }}>
+                    {/* <Database size={28} className="text-accent" /> */}
                     <div className="brand-text">
-                        <h2>ANTI-GRAVITY</h2>
-                        <p>Intelligence Hub</p>
+                        <h2>MiniBI</h2>
+                        {/* <p>Intelligence Hub</p> */}
                     </div>
                 </div>
 
                 <div className="header-greeting">
-                    <h1>{getGreeting()}, <span className="text-accent">{user?.username && user.username.trim() !== '' ? user.username.trim() : 'Vaidehi'}</span>.</h1>
+                    <h1>Fast ETL. Clean Reports. Better Insights.</h1>
                 </div>
 
                 <div className="header-actions">
@@ -165,6 +176,7 @@ const Dashboard = () => {
                                             <button className="action-tag delete" onClick={() => deleteFile(file._id)}>
                                                 <Trash2 size={14} />
                                             </button>
+                                            <ChevronRight className="item-arrow" size={20} />
                                         </div>
                                     </div>
                                 ))
