@@ -35,17 +35,39 @@ app.get('/', (req, res) => {
     res.send('Mini Power BI API is running...');
 });
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('✅ MongoDB Connected'))
-    .catch(err => console.log('❌ MongoDB Connection Error:', err));
+// Connect to MongoDB & Start Server
+const startServer = async () => {
+    try {
+        if (!process.env.MONGO_URI) {
+            throw new Error('MONGO_URI is not defined in .env file');
+        }
+
+        console.log('⏳ Connecting to MongoDB...');
+        await mongoose.connect(process.env.MONGO_URI, {
+            serverSelectionTimeoutMS: 5000, // Timeout after 5s if unable to reach server
+        });
+
+        console.log('✅ MongoDB Connected');
+        console.log('Database Name:', mongoose.connection.name);
+
+        // Start the server only after DB connection
+        app.listen(PORT, () => {
+            console.log(`🚀 [DEBUG MODE V2] Server is running on http://localhost:${PORT}`);
+            console.log(`Timestamp: ${new Date().toISOString()}`);
+        });
+
+    } catch (err) {
+        console.error('❌ MongoDB Connection Error:', err.message);
+        console.error('Possible fixes:');
+        console.error('1. Check your MONGO_URI in .env');
+        console.error('2. Ensure your IP is whitelisted in MongoDB Atlas');
+        console.error('3. Check your internet connection');
+        process.exit(1); // Exit if connection fails
+    }
+};
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/data', require('./routes/data'));
 
-// Start the server
-app.listen(PORT, () => {
-    console.log(`🚀 [DEBUG MODE V2] Server is running on http://localhost:${PORT}`);
-    console.log(`Timestamp: ${new Date().toISOString()}`);
-});
+startServer();
