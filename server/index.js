@@ -10,7 +10,9 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors()); // Allows our frontend to communicate with this backend
+app.use(cors({
+    origin: "*",
+})); // Allows our frontend to communicate with this backend
 app.use(express.json()); // Allows us to parse JSON data in requests
 
 // JSON Syntax Error Handler
