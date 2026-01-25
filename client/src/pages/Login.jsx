@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { LogIn, Mail, Lock, Loader2 } from 'lucide-react';
+import { LogIn, Mail, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { login } = useAuth();
@@ -58,13 +59,29 @@ const Login = () => {
                         <div className="input-wrapper">
                             <Lock className="input-icon" size={20} />
                             <input
-                                type="password"
+                                type={showPassword ? "text" : "password"}
                                 placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
                             />
+                            <button
+                                type="button"
+                                className="password-toggle"
+                                onClick={() => setShowPassword(!showPassword)}
+                                style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
                         </div>
+                    </div>
+
+                    <div className="flex-between" style={{ marginBottom: '24px' }}>
+                        <div className="checkbox-group" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <input type="checkbox" id="remember" style={{ width: 'auto', accentColor: 'var(--primary)' }} />
+                            <label htmlFor="remember" style={{ margin: 0, fontSize: '13px', cursor: 'pointer' }}>Remember me</label>
+                        </div>
+                        <Link to="/forgot-password" style={{ fontSize: '13px', color: 'var(--primary)', textDecoration: 'none' }}>Forgot password?</Link>
                     </div>
 
                     <button type="submit" className="login-button" disabled={isSubmitting}>

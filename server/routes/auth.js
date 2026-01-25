@@ -3,55 +3,244 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const router = express.Router();
 
+const auth = require('../middleware/auth');
+
 // @route   POST /api/auth/signup
 // @desc    Register a new user
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+
+// Configure Email Transporter
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+// @route   POST /api/auth/signup
+// @desc    Register a new user & send verification email
 router.post('/signup', async (req, res) => {
     try {
-        const { username, email, password } = req.body;
+        const { username, email, password, fullName } = req.body;
 
-        // Check if user already exists by email
         let userByEmail = await User.findOne({ email });
         if (userByEmail) {
             return res.status(400).json({ message: 'Email already registered' });
         }
 
-        // Check if user already exists by username
         let userByUsername = await User.findOne({ username });
         if (userByUsername) {
             return res.status(400).json({ message: 'Username is already taken' });
         }
 
+        // Generate Verification Token
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+
         const user = new User({
             username,
             email,
-            password
+            password,
+            fullName,
+            isVerified: false,
+            verificationToken
         });
 
         await user.save();
 
-        // Create JWT
+        // Send Email
+        const verificationUrl = `http://localhost:5173/verify-email/${verificationToken}`;
+
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Verify Your Mini-Analyst Account',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #6366f1;">Welcome to Mini-Analyst!</h2>
+                    <p>Hi ${fullName || username},</p>
+                    <p>Please click the button below to verify your email address and activate your account:</p>
+                    <a href="${verificationUrl}" style="background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 20px 0;">Verify Email</a>
+                    <p>Or paste this link in your browser:</p>
+                    <p>${verificationUrl}</p>
+                </div>
+            `
+        };
+
+        try {
+            if (process.env.EMAIL_USER) {
+                await transporter.sendMail(mailOptions);
+                console.log(`Verification email sent to ${email}`);
+            } else {
+                console.log('No EMAIL_USER configured. Simulating email:');
+                console.log(`To: ${email}`);
+                console.log(`Link: ${verificationUrl}`);
+            }
+        } catch (emailErr) {
+            console.error('Email send failed:', emailErr);
+            // Don't fail the signup, just log it. In production, you might want to handle this differently.
+            console.log(`Fallback Link: ${verificationUrl}`);
+        }
+
+        res.status(200).json({
+            message: 'Registration successful! Please check your email to verify your account.'
+        });
+
+    } catch (err) {
+        console.error('Signup Error:', err);
+        res.status(500).json({
+            message: 'Server error during signup',
+            error: err.message
+        });
+    }
+});
+
+// @route   POST /api/auth/resend-verification
+// @desc    Resend verification email
+router.post('/resend-verification', async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (user.isVerified) {
+            return res.status(400).json({ message: 'Account is already verified' });
+        }
+
+        // Generate New Token
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        user.verificationToken = verificationToken;
+        await user.save();
+
+        // Send Email
+        const verificationUrl = `http://localhost:5173/verify-email/${verificationToken}`;
+
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Verify Your Mini-Analyst Account',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #6366f1;">Welcome back to Mini-Analyst!</h2>
+                    <p>Hi ${user.fullName || user.username},</p>
+                    <p>You requested a new verification link. Please click below to activate your account:</p>
+                    <a href="${verificationUrl}" style="background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 20px 0;">Verify Email</a>
+                    <p>Or paste this link in your browser:</p>
+                    <p>${verificationUrl}</p>
+                </div>
+            `
+        };
+
+        try {
+            if (process.env.EMAIL_USER) {
+                await transporter.sendMail(mailOptions);
+                console.log(`Verification email resent to ${email}`);
+            } else {
+                console.log('No EMAIL_USER configured. Simulating resend email:');
+                console.log(`To: ${email}`);
+                console.log(`Link: ${verificationUrl}`);
+            }
+        } catch (emailErr) {
+            console.error('Email resend failed:', emailErr);
+            console.log(`Fallback Link: ${verificationUrl}`);
+        }
+
+        res.json({ message: 'Verification email resent' });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET /api/auth/verify-email/:token
+// @desc    Verify account and log in
+router.get('/verify-email/:token', async (req, res) => {
+    try {
+        const user = await User.findOne({ verificationToken: req.params.token });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid or expired verification token' });
+        }
+
+        user.isVerified = true;
+        user.verificationToken = undefined;
+        await user.save();
+
+        // Create JWT for auto-login
         const token = jwt.sign(
             { id: user._id, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: '24h' }
+            { expiresIn: '3d' }
         );
 
-        res.status(201).json({
+        res.json({
             token,
             user: {
                 id: user._id,
                 username: user.username,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                fullName: user.fullName
             }
         });
     } catch (err) {
-        console.error('Signup Error Full Stack:', err);
-        res.status(500).json({
-            message: 'Server error during signup',
-            error: err.message,
-            stack: err.stack
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST /api/auth/forgot-password
+// @desc    Send reset password email
+router.post('/forgot-password', async (req, res) => {
+    try {
+        const user = await User.findOne({ email: req.body.email });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Generate reset token (simple random string for now)
+        const resetToken = require('crypto').randomBytes(20).toString('hex');
+        user.resetPasswordToken = resetToken;
+        user.resetPasswordExpire = Date.now() + 3600000; // 1 hour
+
+        await user.save();
+
+        // In a real app, send email here via nodemailer
+        // For now, return the token for testing
+        res.json({ message: 'Email sent', resetToken });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST /api/auth/reset-password/:token
+// @desc    Reset password
+router.post('/reset-password/:token', async (req, res) => {
+    try {
+        const user = await User.findOne({
+            resetPasswordToken: req.params.token,
+            resetPasswordExpire: { $gt: Date.now() }
         });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid or expired token' });
+        }
+
+        user.password = req.body.password;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpire = undefined;
+        await user.save();
+
+        res.json({ message: 'Password updated successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
@@ -73,11 +262,16 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
 
+        // Check verification status
+        if (!user.isVerified) {
+            return res.status(403).json({ message: 'Please verify your email address before logging in.' });
+        }
+
         // Create JWT
         const token = jwt.sign(
             { id: user._id, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: '24h' }
+            { expiresIn: '3d' }
         );
 
         res.json({
@@ -89,6 +283,21 @@ router.post('/login', async (req, res) => {
                 role: user.role
             }
         });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET /api/auth/verify
+// @desc    Verify token and return user
+router.get('/verify', auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.json(user);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });

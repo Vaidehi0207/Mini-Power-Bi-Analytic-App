@@ -8,6 +8,10 @@ const UserSchema = new mongoose.Schema({
         unique: true,
         trim: true
     },
+    fullName: {
+        type: String,
+        trim: true
+    },
     email: {
         type: String,
         required: true,
@@ -15,6 +19,13 @@ const UserSchema = new mongoose.Schema({
         trim: true,
         lowercase: true
     },
+    isVerified: {
+        type: Boolean,
+        default: false
+    },
+    verificationToken: String,
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
     password: {
         type: String,
         required: true
