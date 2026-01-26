@@ -142,19 +142,24 @@ router.post('/resend-verification', async (req, res) => {
             `
         };
 
-        try {
-            if (process.env.EMAIL_USER) {
-                await transporter.sendMail(mailOptions);
-                console.log(`Verification email resent to ${email}`);
+        // Send Email (Non-blocking background task)
+        (async () => {
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            const verificationUrl = `${frontendUrl}/verify-email/${verificationToken}`;
+
+            console.log(`⏳ [Background] Resending verification email to: ${email}`);
+
+            if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+                try {
+                    await transporter.sendMail(mailOptions);
+                    console.log(`✅ [Background] Email successfully resent to ${email}`);
+                } catch (emailErr) {
+                    console.error('❌ [Background] Email resend failed:', emailErr.message);
+                }
             } else {
-                console.log('No EMAIL_USER configured. Simulating resend email:');
-                console.log(`To: ${email}`);
-                console.log(`Link: ${verificationUrl}`);
+                console.warn('⚠️ [Background] Missing EMAIL_USER or EMAIL_PASS. Email not sent.');
             }
-        } catch (emailErr) {
-            console.error('Email resend failed:', emailErr);
-            console.log(`Fallback Link: ${verificationUrl}`);
-        }
+        })();
 
         res.json({ message: 'Verification email resent' });
 
