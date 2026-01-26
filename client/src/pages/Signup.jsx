@@ -26,10 +26,9 @@ const Signup = () => {
             return;
         }
 
-        setIsSubmitting(true);
         try {
             await signup(username, email, password, fullName);
-            setEmailSent(true);
+            navigate('/'); // Redirect to home immediately after signup
         } catch (err) {
             const backendError = err.response?.data?.message;
             const detailedError = err.response?.data?.error;
