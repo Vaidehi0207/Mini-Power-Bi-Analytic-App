@@ -69,19 +69,26 @@ router.post('/signup', async (req, res) => {
             `
         };
 
+        // Send Email (Async but with logging)
+        console.log(`⏳ Attempting to send verification email to: ${email}`);
+        const mailPromise = transporter.sendMail(mailOptions);
+
+        // We'll wait for the email but with a timeout to avoid hanging the UI
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Email send timed out after 10s')), 10000)
+        );
+
         try {
-            if (process.env.EMAIL_USER) {
-                await transporter.sendMail(mailOptions);
-                console.log(`Verification email sent to ${email}`);
+            if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+                await Promise.race([mailPromise, timeoutPromise]);
+                console.log(`✅ Verification email successfully sent to ${email}`);
             } else {
-                console.log('No EMAIL_USER configured. Simulating email:');
-                console.log(`To: ${email}`);
-                console.log(`Link: ${verificationUrl}`);
+                console.warn('⚠️ Missing EMAIL_USER or EMAIL_PASS. Email not sent.');
+                console.log(`Fallback Link: ${verificationUrl}`);
             }
         } catch (emailErr) {
-            console.error('Email send failed:', emailErr);
-            // Don't fail the signup, just log it. In production, you might want to handle this differently.
-            console.log(`Fallback Link: ${verificationUrl}`);
+            console.error('❌ Email delivery failed:', emailErr.message);
+            console.log(`Manual Verification Link for ${email}: ${verificationUrl}`);
         }
 
         res.status(200).json({
@@ -137,18 +144,25 @@ router.post('/resend-verification', async (req, res) => {
             `
         };
 
+        // Send Email (Async but with logging)
+        console.log(`⏳ Attempting to resend verification email to: ${email}`);
+        const mailPromise = transporter.sendMail(mailOptions);
+
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Email resend timed out after 10s')), 10000)
+        );
+
         try {
-            if (process.env.EMAIL_USER) {
-                await transporter.sendMail(mailOptions);
-                console.log(`Verification email resent to ${email}`);
+            if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+                await Promise.race([mailPromise, timeoutPromise]);
+                console.log(`✅ Verification email successfully resent to ${email}`);
             } else {
-                console.log('No EMAIL_USER configured. Simulating resend email:');
-                console.log(`To: ${email}`);
-                console.log(`Link: ${verificationUrl}`);
+                console.warn('⚠️ Missing EMAIL_USER or EMAIL_PASS. Email not sent.');
+                console.log(`Fallback Link: ${verificationUrl}`);
             }
         } catch (emailErr) {
-            console.error('Email resend failed:', emailErr);
-            console.log(`Fallback Link: ${verificationUrl}`);
+            console.error('❌ Email resend failed:', emailErr.message);
+            console.log(`Manual Verification Link for ${email}: ${verificationUrl}`);
         }
 
         res.json({ message: 'Verification email resent' });
