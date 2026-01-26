@@ -20,7 +20,8 @@ const generateToken = async () => {
         user.isVerified = false; // Ensure it is unverified
         await user.save();
 
-        console.log(`VERIFICATION_LINK: http://localhost:5173/verify-email/${verificationToken}`);
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        console.log(`VERIFICATION_LINK: ${frontendUrl}/verify-email/${verificationToken}`);
         process.exit(0);
     } catch (err) {
         console.error(err);

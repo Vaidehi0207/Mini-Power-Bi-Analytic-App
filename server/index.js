@@ -11,7 +11,11 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-    origin: "*",
+    origin: [
+        "http://localhost:5173",
+        "https://mini-power-bi-analytic-app.vercel.app"
+    ],
+    credentials: true
 })); // Allows our frontend to communicate with this backend
 app.use(express.json()); // Allows us to parse JSON data in requests
 
