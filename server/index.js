@@ -45,7 +45,7 @@ app.use((req, res, next) => {
 
 // Basic Route to check if server is running
 app.get('/', (req, res) => {
-    res.send('Mini Power BI API is running... [v2.2]');
+    res.send('Mini Power BI API is running... [v3.0]');
 });
 
 // Health Check for Deployment
