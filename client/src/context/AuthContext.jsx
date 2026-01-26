@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
             if (token && token !== 'undefined') {
                 try {
                     // Verify token with backend
-                    const res = await api.get('/auth/verify');
+                    const res = await api.get('/api/auth/verify');
                     setUser(res.data);
                 } catch (err) {
                     console.error('Token verification failed:', err);
@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = async (email, password) => {
-        const response = await api.post('/auth/login', { email, password });
+        const response = await api.post('/api/auth/login', { email, password });
         const { token, user: userData } = response.data;
 
         localStorage.setItem('token', token);
@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const signup = async (username, email, password, fullName) => {
-        const response = await api.post('/auth/signup', { username, email, password, fullName });
+        const response = await api.post('/api/auth/signup', { username, email, password, fullName });
         // No auto-login on signup anymore - waiting for email verification
         return response.data;
     };

@@ -40,7 +40,7 @@ const Signup = () => {
 
     const handleResend = async () => {
         try {
-            await api.post('/auth/resend-verification', { email });
+            await api.post('/api/auth/resend-verification', { email });
             alert('Verification email resent! Check your console/inbox.');
         } catch (err) {
             alert(err.response?.data?.message || 'Failed to resend email');
