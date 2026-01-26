@@ -42,7 +42,14 @@ export const AuthProvider = ({ children }) => {
 
     const signup = async (username, email, password, fullName) => {
         const response = await api.post('/api/auth/signup', { username, email, password, fullName });
-        // No auto-login on signup anymore - waiting for email verification
+        const { token, user: userData } = response.data;
+
+        if (token) {
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(userData));
+            setUser(userData);
+        }
+
         return response.data;
     };
 
