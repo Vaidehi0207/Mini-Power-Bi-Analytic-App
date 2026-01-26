@@ -7,6 +7,12 @@ const auth = require('../middleware/auth');
 const DataFile = require('../models/DataFile');
 const { simulateAlteryxAPI } = require('../scripts/workflowSimulator');
 
+// Ensure required directories exist
+const uploadDir = 'uploads/';
+const processedDir = 'processed_data/';
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+if (!fs.existsSync(processedDir)) fs.mkdirSync(processedDir, { recursive: true });
+
 // Configure Multer Storage
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
