@@ -14,7 +14,6 @@ const Signup = () => {
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [emailSent, setEmailSent] = useState(false);
-    const [debugLink, setDebugLink] = useState('');
     const { signup } = useAuth();
     const navigate = useNavigate();
 
@@ -29,10 +28,7 @@ const Signup = () => {
 
         setIsSubmitting(true);
         try {
-            const result = await signup(username, email, password, fullName);
-            if (result && result.debugLink) {
-                setDebugLink(result.debugLink);
-            }
+            await signup(username, email, password, fullName);
             setEmailSent(true);
         } catch (err) {
             const backendError = err.response?.data?.message;
@@ -44,10 +40,7 @@ const Signup = () => {
 
     const handleResend = async () => {
         try {
-            const res = await api.post('/auth/resend-verification', { email });
-            if (res.data && res.data.debugLink) {
-                setDebugLink(res.data.debugLink);
-            }
+            await api.post('/auth/resend-verification', { email });
             alert('Verification email resent! Check your console/inbox.');
         } catch (err) {
             alert(err.response?.data?.message || 'Failed to resend email');
@@ -70,19 +63,6 @@ const Signup = () => {
                         We've sent a verification link to <strong>{email}</strong>.
                         Please click the link to activate your account.
                     </p>
-
-                    {debugLink && (
-                        <div style={{
-                            background: 'rgba(99, 102, 241, 0.05)',
-                            padding: '15px',
-                            borderRadius: '8px',
-                            marginBottom: '20px',
-                            border: '1px dashed var(--primary)'
-                        }}>
-                            <p style={{ fontSize: '13px', marginBottom: '10px' }}><strong>Debug:</strong> If the email is delayed, you can use this link:</p>
-                            <a href={debugLink} style={{ color: 'var(--primary)', fontSize: '12px', wordBreak: 'break-all' }}>{debugLink}</a>
-                        </div>
-                    )}
                     <button className="login-button" onClick={() => navigate('/login')}>
                         Return to Sign In
                     </button>

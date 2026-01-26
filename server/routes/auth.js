@@ -87,12 +87,10 @@ router.post('/signup', async (req, res) => {
             } else {
                 console.warn('⚠️ [Background] Missing EMAIL_USER or EMAIL_PASS. Email not sent.');
             }
-            console.log(`[DEBUG] Verification Link for ${email}: ${verificationUrl}`);
         })();
 
         res.status(200).json({
-            message: 'Registration successful! Please check your email to verify your account.',
-            debugLink: verificationUrl // Temporarily include link for easier testing
+            message: 'Registration successful! Please check your email to verify your account.'
         });
 
     } catch (err) {
@@ -146,9 +144,6 @@ router.post('/resend-verification', async (req, res) => {
 
         // Send Email (Non-blocking background task)
         (async () => {
-            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-            const verificationUrl = `${frontendUrl}/verify-email/${verificationToken}`;
-
             console.log(`⏳ [Background] Resending verification email to: ${email}`);
 
             if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
@@ -161,19 +156,16 @@ router.post('/resend-verification', async (req, res) => {
             } else {
                 console.warn('⚠️ [Background] Missing EMAIL_USER or EMAIL_PASS. Email not sent.');
             }
-            console.log(`[DEBUG] Verification Link for ${email}: ${verificationUrl}`);
         })();
 
-        res.json({
-            message: 'Verification email resent',
-            debugLink: `http://localhost:5173/verify-email/${verificationToken}` // Using localhost for resend for now as it's easier to copy
-        });
+        res.json({ message: 'Verification email resent' });
 
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });
     }
 });
+
 
 // @route   GET /api/auth/verify-email/:token
 // @desc    Verify account and log in
