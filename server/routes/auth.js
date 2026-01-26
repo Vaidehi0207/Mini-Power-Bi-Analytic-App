@@ -69,30 +69,25 @@ router.post('/signup', async (req, res) => {
             `
         };
 
-        // Send Email (Async but with logging)
-        console.log(`⏳ Attempting to send verification email to: ${email}`);
-        const mailPromise = transporter.sendMail(mailOptions);
-
-        // We'll wait for the email but with a timeout to avoid hanging the UI
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Email send timed out after 10s')), 10000)
-        );
-
-        try {
+        // Send Email (Non-blocking background task)
+        (async () => {
+            console.log(`⏳ [Background] Attempting to send verification email to: ${email}`);
             if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-                await Promise.race([mailPromise, timeoutPromise]);
-                console.log(`✅ Verification email successfully sent to ${email}`);
+                try {
+                    await transporter.sendMail(mailOptions);
+                    console.log(`✅ [Background] Verification email successfully sent to ${email}`);
+                } catch (emailErr) {
+                    console.error('❌ [Background] Email delivery failed:', emailErr.message);
+                }
             } else {
-                console.warn('⚠️ Missing EMAIL_USER or EMAIL_PASS. Email not sent.');
-                console.log(`Fallback Link: ${verificationUrl}`);
+                console.warn('⚠️ [Background] Missing EMAIL_USER or EMAIL_PASS. Email not sent.');
             }
-        } catch (emailErr) {
-            console.error('❌ Email delivery failed:', emailErr.message);
-            console.log(`Manual Verification Link for ${email}: ${verificationUrl}`);
-        }
+            console.log(`[DEBUG] Verification Link for ${email}: ${verificationUrl}`);
+        })();
 
         res.status(200).json({
-            message: 'Registration successful! Please check your email to verify your account.'
+            message: 'Registration successful! Please check your email to verify your account.',
+            debugLink: verificationUrl // Temporarily include link for easier testing
         });
 
     } catch (err) {
@@ -144,28 +139,30 @@ router.post('/resend-verification', async (req, res) => {
             `
         };
 
-        // Send Email (Async but with logging)
-        console.log(`⏳ Attempting to resend verification email to: ${email}`);
-        const mailPromise = transporter.sendMail(mailOptions);
+        // Send Email (Non-blocking background task)
+        (async () => {
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            const verificationUrl = `${frontendUrl}/verify-email/${verificationToken}`;
 
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Email resend timed out after 10s')), 10000)
-        );
+            console.log(`⏳ [Background] Resending verification email to: ${email}`);
 
-        try {
             if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-                await Promise.race([mailPromise, timeoutPromise]);
-                console.log(`✅ Verification email successfully resent to ${email}`);
+                try {
+                    await transporter.sendMail(mailOptions);
+                    console.log(`✅ [Background] Email successfully resent to ${email}`);
+                } catch (emailErr) {
+                    console.error('❌ [Background] Email resend failed:', emailErr.message);
+                }
             } else {
-                console.warn('⚠️ Missing EMAIL_USER or EMAIL_PASS. Email not sent.');
-                console.log(`Fallback Link: ${verificationUrl}`);
+                console.warn('⚠️ [Background] Missing EMAIL_USER or EMAIL_PASS. Email not sent.');
             }
-        } catch (emailErr) {
-            console.error('❌ Email resend failed:', emailErr.message);
-            console.log(`Manual Verification Link for ${email}: ${verificationUrl}`);
-        }
+            console.log(`[DEBUG] Verification Link for ${email}: ${verificationUrl}`);
+        })();
 
-        res.json({ message: 'Verification email resent' });
+        res.json({
+            message: 'Verification email resent',
+            debugLink: `http://localhost:5173/verify-email/${verificationToken}` // Using localhost for resend for now as it's easier to copy
+        });
 
     } catch (err) {
         console.error(err);
