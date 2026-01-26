@@ -6,17 +6,15 @@ const fs = require('fs');
 const auth = require('../middleware/auth');
 const DataFile = require('../models/DataFile');
 const { simulateAlteryxAPI } = require('../scripts/workflowSimulator');
+const { getPythonCommand, UPLOADS_DIR, PROCESSED_DATA_DIR, ensureDirs } = require('../utils');
 
 // Ensure required directories exist
-const uploadDir = 'uploads/';
-const processedDir = 'processed_data/';
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-if (!fs.existsSync(processedDir)) fs.mkdirSync(processedDir, { recursive: true });
+ensureDirs();
 
 // Configure Multer Storage
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, 'uploads/');
+        cb(null, UPLOADS_DIR);
     },
     filename: function (req, file, cb) {
         cb(null, Date.now() + '-' + file.originalname);
@@ -47,12 +45,7 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
 
         const inputPath = req.file.path;
         const outFilename = `processed-${path.parse(req.file.filename).name}.csv`;
-        const outputPath = path.join('processed_data', outFilename);
-
-        // Ensure processed_data directory exists
-        if (!fs.existsSync('processed_data')) {
-            fs.mkdirSync('processed_data', { recursive: true });
-        }
+        const outputPath = path.join(PROCESSED_DATA_DIR, outFilename);
 
         const processingType = req.body.processingType || 'standard';
 
@@ -90,9 +83,7 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
             return;
         }
 
-        // Detect Python Path (support venv if exists)
-        const venvPath = path.join(__dirname, '../../.venv/Scripts/python.exe');
-        const pythonCmd = fs.existsSync(venvPath) ? venvPath : 'python';
+        const pythonCmd = getPythonCommand();
 
         // Standard Python Processing
         const pythonProcess = spawn(pythonCmd, [
@@ -166,13 +157,13 @@ router.delete('/:id', auth, async (req, res) => {
             return res.status(401).json({ message: 'User not authorized' });
         }
 
-        // Delete files from disk
+        // Delete files from disk using absolute paths
         if (fs.existsSync(file.filePath)) {
             fs.unlinkSync(file.filePath);
         }
 
-        const outFilename = `processed-${file.filename.split('.')[0]}.csv`;
-        const outputPath = path.join('processed_data', outFilename);
+        const outFilename = `processed-${path.parse(file.filename).name}.csv`;
+        const outputPath = path.join(PROCESSED_DATA_DIR, outFilename);
         if (fs.existsSync(outputPath)) {
             fs.unlinkSync(outputPath);
         }
@@ -200,36 +191,41 @@ router.get('/download/:id', auth, async (req, res) => {
             return res.status(401).json({ message: 'User not authorized' });
         }
 
-        // Robust filename parsing to handle potential double dots or complex names
+        // Robust candidate search for processed files
         const parsedStored = path.parse(file.filename);
         const parsedOriginal = path.parse(file.originalName);
 
-        // Try multiple potential naming conventions to find the file
         const candidates = [
             `processed-${parsedStored.name}.csv`,
             `processed-${file.filename}`,
             `processed-${parsedOriginal.name}.csv`,
-            // Legacy fallback for files created with split('.')[0]
             `processed-${file.filename.split('.')[0]}.csv`
         ];
 
         let finalOutputPath = null;
+        console.log(`🔍 [Download] Searching for processed file for ID: ${file._id}`);
+        console.log(`   Stored Filename: ${file.filename}`);
+        console.log(`   Target Directory: ${PROCESSED_DATA_DIR}`);
+
         for (const candidate of candidates) {
-            const checkPath = path.resolve(__dirname, '../processed_data', candidate);
+            const checkPath = path.join(PROCESSED_DATA_DIR, candidate);
             if (fs.existsSync(checkPath)) {
                 finalOutputPath = checkPath;
+                console.log(`   ✅ Found candidate: ${candidate}`);
                 break;
+            } else {
+                console.log(`   ❌ Candidate not found: ${candidate}`);
             }
         }
 
         if (!finalOutputPath) {
-            console.error(`Download Error: Could not find processed file. Checked candidates: ${candidates.join(', ')} in ${path.resolve(__dirname, '../processed_data')}`);
-            return res.status(404).json({ message: 'Processed file not found on disk' });
+            console.error(`Download Error: Could not find processed file for ${file.originalName}.`);
+            return res.status(404).json({ message: 'Processed file not found on disk. It may have been cleared by the server.' });
         }
 
         res.download(finalOutputPath, `cleaned_${file.originalName.split('.')[0]}.csv`);
     } catch (err) {
-        console.error(err);
+        console.error('Download Route Error:', err);
         res.status(500).json({ message: 'Server error downloading file' });
     }
 });
