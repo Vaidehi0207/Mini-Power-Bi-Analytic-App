@@ -18,7 +18,7 @@ const simulateAlteryxAPI = async (filename, inputPath, outputPath) => {
             const pythonServiceUrl = process.env.PYTHON_API_URL || 'http://localhost:10000';
 
             const form = new FormData();
-            form.append('file', fs.createReadStream(inputPath));
+            form.append('file', fs.createReadStream(inputPath), { filename: filename });
 
             const pythonRes = await axios.post(`${pythonServiceUrl}/process`, form, {
                 headers: {

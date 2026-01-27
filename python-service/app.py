@@ -32,7 +32,10 @@ def process_file():
         return jsonify({"status": "failed", "error": "No file provided"}), 400
 
     file = request.files["file"]
-    file_ext = os.path.splitext(file.filename)[1].lower()
+    original_filename = file.filename or "unknown_file.csv"
+    file_ext = os.path.splitext(original_filename)[1].lower()
+    if not file_ext:
+        file_ext = '.csv' # Default fallback
     
     # Save file temporarily
     temp_filename = f"{uuid.uuid4()}{file_ext}"
@@ -176,7 +179,11 @@ def process_file():
         return jsonify(result)
 
     except Exception as e:
-        return jsonify({"status": "failed", "error": str(e)}), 500
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"❌ PROCESSING ERROR: {str(e)}")
+        print(error_traceback)
+        return jsonify({"status": "failed", "error": str(e), "traceback": error_traceback}), 500
     finally:
         if os.path.exists(input_path):
             os.remove(input_path)

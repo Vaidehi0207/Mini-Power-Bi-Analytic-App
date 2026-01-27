@@ -92,7 +92,7 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
         console.log(`📡 Sending file to Python Service: ${pythonServiceUrl}/process`);
 
         const form = new FormData();
-        form.append('file', fs.createReadStream(inputPath));
+        form.append('file', fs.createReadStream(inputPath), { filename: req.file.originalname });
 
         try {
             const pythonRes = await axios.post(`${pythonServiceUrl}/process`, form, {
