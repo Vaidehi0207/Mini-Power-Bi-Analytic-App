@@ -91,10 +91,15 @@ const DataReport = ({ file, onClose, onExplorePBI }) => {
     const handleDownload = async () => {
         try {
             const token = localStorage.getItem('token');
-            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
             const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
 
-            const response = await fetch(`${cleanBaseUrl}/api/data/download/${file._id}`, {
+            // If baseUrl already includes /api, don't add it again
+            const downloadUrl = cleanBaseUrl.includes('/api')
+                ? `${cleanBaseUrl}/data/download/${file._id}`
+                : `${cleanBaseUrl}/api/data/download/${file._id}`;
+
+            const response = await fetch(downloadUrl, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

@@ -7,6 +7,8 @@ const auth = require('../middleware/auth');
 const DataFile = require('../models/DataFile');
 const { simulateAlteryxAPI } = require('../scripts/workflowSimulator');
 const { getPythonCommand, UPLOADS_DIR, PROCESSED_DATA_DIR, ensureDirs } = require('../utils');
+const axios = require('axios');
+const FormData = require('form-data');
 
 // Ensure required directories exist
 ensureDirs();
@@ -83,46 +85,44 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
             return;
         }
 
-        const pythonCmd = getPythonCommand();
+        // Detect Python Service URL (default to local Flask if not set)
+        const pythonServiceUrl = process.env.PYTHON_API_URL || 'http://localhost:10000';
 
-        // Standard Python Processing
-        const pythonProcess = spawn(pythonCmd, [
-            path.join(__dirname, '../scripts/processor.py'),
-            inputPath,
-            outputPath
-        ]);
+        // Standard Python Processing via Microservice
+        console.log(`📡 Sending file to Python Service: ${pythonServiceUrl}/process`);
 
-        let outputData = '';
-        let errorData = '';
+        const form = new FormData();
+        form.append('file', fs.createReadStream(inputPath));
 
-        pythonProcess.stdout.on('data', (data) => {
-            outputData += data.toString();
-        });
+        try {
+            const pythonRes = await axios.post(`${pythonServiceUrl}/process`, form, {
+                headers: {
+                    ...form.getHeaders()
+                }
+            });
 
-        pythonProcess.stderr.on('data', (data) => {
-            errorData += data.toString();
-            console.error(`Python stderr: ${data}`);
-        });
+            const result = pythonRes.data;
 
-        pythonProcess.on('close', async (code) => {
-            try {
-                if (code !== 0) {
-                    console.error(`Python process exited with code ${code}. Stderr: ${errorData}`);
+            if (result.status === 'completed') {
+                // Save the processed CSV data returned by the service
+                if (result.csv_data) {
+                    fs.writeFileSync(outputPath, result.csv_data);
                 }
 
-                const result = JSON.parse(outputData || '{}');
-                file.status = result.status === 'completed' ? 'completed' : 'failed';
+                file.status = 'completed';
                 file.auditLogs = result.audit;
-                file.processingLogs = outputData + (errorData ? `\nERRORS:\n${errorData}` : '');
+                file.processingLogs = `Microservice Processing Success\nURL: ${pythonServiceUrl}`;
                 await file.save();
-                console.log(`Standard Processing finished for ${file.originalName}: ${file.status}`);
-            } catch (err) {
-                console.error('Error updating file status:', err);
-                file.status = 'failed';
-                file.processingLogs = `JSON Parse Error: ${err.message}\nRaw Output: ${outputData}\nStderr: ${errorData}`;
-                await file.save();
+                console.log(`✅ Microservice Processing finished for ${file.originalName}: ${file.status}`);
+            } else {
+                throw new Error(result.error || 'Unknown error from Python service');
             }
-        });
+        } catch (err) {
+            console.error('❌ Microservice Processing Error:', err.message);
+            file.status = 'failed';
+            file.processingLogs = `Microservice Error: ${err.message}`;
+            await file.save();
+        }
 
     } catch (err) {
         console.error('Upload Error:', err);
