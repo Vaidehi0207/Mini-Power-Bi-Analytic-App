@@ -27,7 +27,7 @@ const Dashboard = () => {
 
     const fetchFiles = async () => {
         try {
-            const res = await api.get('/data/files');
+            const res = await api.get('/api/data/files');
             setFiles(res.data);
         } catch (err) {
             console.error('Failed to fetch files');
@@ -37,7 +37,7 @@ const Dashboard = () => {
     const deleteFile = async (id) => {
         if (!window.confirm('Are you sure you want to remove this file entry?')) return;
         try {
-            await api.delete(`/data/${id}`);
+            await api.delete(`/api/data/${id}`);
             setFiles(files.filter(f => f._id !== id));
             setSelectedFilesForBlending(prev => prev.filter(fid => fid !== id));
         } catch (err) {

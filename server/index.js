@@ -11,10 +11,17 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-    origin: [
-        "http://localhost:5173",
-        "https://mini-power-bi-analytic-app.vercel.app"
-    ],
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like local scripts) or matching patterns
+        if (!origin ||
+            origin.includes('localhost') ||
+            origin.endsWith('.vercel.app') ||
+            origin === 'https://mini-power-bi-analytic-app.vercel.app') {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 })); // Allows our frontend to communicate with this backend
 app.use(express.json()); // Allows us to parse JSON data in requests
@@ -38,7 +45,16 @@ app.use((req, res, next) => {
 
 // Basic Route to check if server is running
 app.get('/', (req, res) => {
-    res.send('Mini Power BI API is running...');
+    res.send('Mini Power BI API is running... [v3.1]');
+});
+
+// Health Check for Deployment
+app.get('/api/health', (req, res) => {
+    res.json({
+        status: 'UP',
+        version: '2.2',
+        timestamp: new Date().toISOString()
+    });
 });
 
 // Connect to MongoDB & Start Server

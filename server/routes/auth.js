@@ -13,8 +13,8 @@ const crypto = require('crypto');
 // Configure Email Transporter
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // Use STARTTLS
+    port: 465,
+    secure: true, // Use SSL
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
@@ -48,7 +48,7 @@ router.post('/signup', async (req, res) => {
             email,
             password,
             fullName,
-            isVerified: false,
+            isVerified: true, // Auto-verify for now
             verificationToken
         });
 
@@ -74,23 +74,40 @@ router.post('/signup', async (req, res) => {
             `
         };
 
-        try {
-            if (process.env.EMAIL_USER) {
-                await transporter.sendMail(mailOptions);
-                console.log(`Verification email sent to ${email}`);
+        /* Commented out email sending logic as requested
+        // Send Email (Non-blocking background task)
+        (async () => {
+            console.log(`⏳ [Background] Attempting to send verification email to: ${email}`);
+            if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+                try {
+                    await transporter.sendMail(mailOptions);
+                    console.log(`✅ [Background] Verification email successfully sent to ${email}`);
+                } catch (emailErr) {
+                    console.error('❌ [Background] Email delivery failed:', emailErr.message);
+                }
             } else {
-                console.log('No EMAIL_USER configured. Simulating email:');
-                console.log(`To: ${email}`);
-                console.log(`Link: ${verificationUrl}`);
+                console.warn('⚠️ [Background] Missing EMAIL_USER or EMAIL_PASS. Email not sent.');
             }
-        } catch (emailErr) {
-            console.error('Email send failed:', emailErr);
-            // Don't fail the signup, just log it. In production, you might want to handle this differently.
-            console.log(`Fallback Link: ${verificationUrl}`);
-        }
+        })();
+        */
+
+        // Create JWT for auto-login after signup
+        const token = jwt.sign(
+            { id: user._id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '3d' }
+        );
 
         res.status(200).json({
-            message: 'Registration successful! Please check your email to verify your account.'
+            message: 'Registration successful!',
+            token,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                fullName: user.fullName
+            }
         });
 
     } catch (err) {
@@ -144,9 +161,6 @@ router.post('/resend-verification', async (req, res) => {
 
         // Send Email (Non-blocking background task)
         (async () => {
-            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-            const verificationUrl = `${frontendUrl}/verify-email/${verificationToken}`;
-
             console.log(`⏳ [Background] Resending verification email to: ${email}`);
 
             if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
@@ -168,6 +182,7 @@ router.post('/resend-verification', async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+
 
 // @route   GET /api/auth/verify-email/:token
 // @desc    Verify account and log in
@@ -274,10 +289,12 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
 
+        /* Temporarily bypass verification check for login
         // Check verification status
         if (!user.isVerified) {
             return res.status(403).json({ message: 'Please verify your email address before logging in.' });
         }
+        */
 
         // Create JWT
         const token = jwt.sign(

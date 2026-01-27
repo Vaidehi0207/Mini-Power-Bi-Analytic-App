@@ -18,7 +18,7 @@ const VerifyEmail = () => {
             hasVerified.current = true;
 
             try {
-                const res = await api.get(`/auth/verify-email/${token}`);
+                const res = await api.get(`/api/auth/verify-email/${token}`);
                 const { token: jwtToken, user } = res.data;
 
                 // Login the user

@@ -40,7 +40,7 @@ const FileUpload = ({ onUploadSuccess }) => {
         setError(null);
 
         try {
-            const response = await api.post('/data/upload', formData, {
+            const response = await api.post('/api/data/upload', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
