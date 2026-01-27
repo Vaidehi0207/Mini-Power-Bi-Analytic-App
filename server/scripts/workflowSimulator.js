@@ -1,7 +1,7 @@
-const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const { getPythonCommand } = require('../utils');
+const axios = require('axios');
+const FormData = require('form-data');
 
 /**
  * Alteryx Gallery API Simulator (AEP)
@@ -15,26 +15,28 @@ const simulateAlteryxAPI = async (filename, inputPath, outputPath) => {
     let realAudit = null;
     if (inputPath && fs.existsSync(inputPath)) {
         try {
-            const pythonCmd = getPythonCommand();
+            const pythonServiceUrl = process.env.PYTHON_API_URL || 'http://localhost:10000';
 
-            const pythonResult = await new Promise((resolve) => {
-                const py = spawn(pythonCmd, [
-                    path.join(__dirname, 'processor.py'),
-                    inputPath,
-                    outputPath
-                ]);
-                let out = '';
-                py.stdout.on('data', (d) => out += d.toString());
-                py.on('close', () => {
-                    try { resolve(JSON.parse(out)); } catch { resolve(null); }
-                });
+            const form = new FormData();
+            form.append('file', fs.createReadStream(inputPath));
+
+            const pythonRes = await axios.post(`${pythonServiceUrl}/process`, form, {
+                headers: {
+                    ...form.getHeaders()
+                }
             });
 
-            if (pythonResult && pythonResult.status === 'completed') {
-                realAudit = pythonResult.audit;
+            const result = pythonRes.data;
+
+            if (result.status === 'completed') {
+                // Save the processed CSV data if it exists
+                if (result.csv_data && outputPath) {
+                    fs.writeFileSync(outputPath, result.csv_data);
+                }
+                realAudit = result.audit;
             }
         } catch (err) {
-            console.error('Simulator Dynamic Data Fetch Error:', err);
+            console.error('Simulator Dynamic Data Fetch Error:', err.message);
         }
     }
 
