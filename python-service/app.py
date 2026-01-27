@@ -37,12 +37,12 @@ def process_file():
     if not file_ext:
         file_ext = '.csv' # Default fallback
     
-    # Save file temporarily
-    temp_filename = f"{uuid.uuid4()}{file_ext}"
-    input_path = os.path.join(UPLOAD_DIR, temp_filename)
-    file.save(input_path)
-
     try:
+        # Save file temporarily
+        temp_filename = f"{uuid.uuid4()}{file_ext}"
+        input_path = os.path.join(UPLOAD_DIR, temp_filename)
+        file.save(input_path)
+        print(f"📥 Received file: {original_filename} -> Saved to {input_path}")
         # 1. Load Data
         if file_ext == '.csv':
             df = pd.read_csv(input_path)
