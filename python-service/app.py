@@ -6,6 +6,7 @@ import os
 import json
 import re
 import uuid
+import sys
 from datetime import datetime
 
 app = Flask(__name__)
@@ -43,11 +44,13 @@ def process_file():
         input_path = os.path.join(UPLOAD_DIR, temp_filename)
         file.save(input_path)
         print(f"📥 Received file: {original_filename} -> Saved to {input_path}")
+        sys.stdout.flush()
         # 1. Load Data
         if file_ext == '.csv':
             df = pd.read_csv(input_path)
         elif file_ext in ['.xlsx', '.xls']:
-            df = pd.read_excel(input_path)
+            engine = 'openpyxl' if file_ext == '.xlsx' else 'xlrd'
+            df = pd.read_excel(input_path, engine=engine)
         else:
             return jsonify({"status": "failed", "error": f"Unsupported file type: {file_ext}"}), 400
 
@@ -183,6 +186,7 @@ def process_file():
         error_traceback = traceback.format_exc()
         print(f"❌ PROCESSING ERROR: {str(e)}")
         print(error_traceback)
+        sys.stdout.flush()
         return jsonify({"status": "failed", "error": str(e), "traceback": error_traceback}), 500
     finally:
         if os.path.exists(input_path):
