@@ -148,6 +148,7 @@ def process_file():
                 profile["min"] = float(df[col].min()) if not df[col].empty else 0
                 profile["max"] = float(df[col].max()) if not df[col].empty else 0
                 profile["mean"] = float(df[col].mean()) if not df[col].empty else 0
+                profile["sum"] = float(df[col].sum()) if not df[col].empty else 0
             
             column_profile[col] = profile
 

@@ -31,7 +31,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
     const audit = activeFile.auditLogs || {};
     const profile = audit.column_profile || {};
     const [activePage, setActivePage] = useState('overview');
-    const [selectedFilters, setSelectedFilters] = useState({});
+    const [selectedFilters, setSelectedFilters] = useState({}); // Stores { column: [val1, val2] }
     const [isFilterPaneOpen, setIsFilterPaneOpen] = useState(true);
     const [collapsedSlicers, setCollapsedSlicers] = useState({});
 
@@ -47,13 +47,18 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
         .filter(([_, info]) => info.type.includes('float') || info.type.includes('int') || info.type.includes('number'))
         .map(([name]) => name);
 
-    // Smart Category: Prefer low cardinality, fallback to any string with lowest unique count
+    // Smart Category: All categorical candidates for the slicer pane
     const catCols = useMemo(() => {
-        const candidates = Object.entries(profile).filter(([_, info]) => info.type === 'object' || info.type === 'string');
-        const lowCard = candidates.filter(([_, info]) => info.unique_count < 25).map(([name]) => name);
-        if (lowCard.length > 0) return lowCard;
-        // Fallback: Sort by unique count ascending (fewest unique items is best for grouping)
-        return candidates.sort((a, b) => a[1].unique_count - b[1].unique_count).slice(0, 2).map(([name]) => name);
+        return Object.entries(profile)
+            .filter(([_, info]) =>
+                info.type === 'object' ||
+                info.type === 'string' ||
+                info.type.includes('string') ||
+                info.type === 'category' ||
+                info.type === 'bool'
+            )
+            .sort((a, b) => a[1].unique_count - b[1].unique_count)
+            .map(([name]) => name);
     }, [profile]);
 
     // Smart Dates: specific names OR datetime type detection
@@ -91,20 +96,32 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
     const isCountMetric = activeMetric === 'record_count';
 
 
-    // 2. INTERACTIVE FILTER LOGIC
+    // 2. INTERACTIVE FILTER LOGIC (Multi-select)
     const filteredData = useMemo(() => {
         let data = audit.sample_after || [];
-        Object.entries(selectedFilters).forEach(([col, val]) => {
-            if (val) data = data.filter(item => String(item[col]) === val);
+        Object.entries(selectedFilters).forEach(([col, vals]) => {
+            if (vals && vals.length > 0) {
+                data = data.filter(item => {
+                    const itemVal = item[col];
+                    const normalizedItemVal = (itemVal === null || itemVal === undefined) ? "null" : String(itemVal);
+                    return vals.includes(normalizedItemVal);
+                });
+            }
         });
         return data;
     }, [audit.sample_after, selectedFilters]);
 
     const toggleFilter = (col, val) => {
-        setSelectedFilters(prev => ({
-            ...prev,
-            [col]: prev[col] === val ? null : val
-        }));
+        const stringVal = (val === null || val === undefined) ? "null" : String(val);
+        setSelectedFilters(prev => {
+            const currentVals = prev[col] || [];
+            if (currentVals.includes(stringVal)) {
+                const nextVals = currentVals.filter(v => v !== stringVal);
+                return { ...prev, [col]: nextVals.length > 0 ? nextVals : null };
+            } else {
+                return { ...prev, [col]: [...currentVals, stringVal] };
+            }
+        });
     };
 
     // Helper for Top/Unique KPIs in Count Mode
@@ -122,138 +139,148 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
 
 
 
+    const isFiltered = useMemo(() => Object.values(selectedFilters).some(v => v !== null), [selectedFilters]);
+
     // Sub-renderers for pages
-    const renderOverview = () => (
-        <div className="pbi-page-content">
-            {/* KPI Grid - High Density */}
-            {/* KPI Grid - High Density */}
-            <div className="pbi-premium-kpi-grid">
-                <div className="pbi-kpi-card-modern" title="Total number of rows matching current filters">
-                    <div className="kpi-icon-box blue"><Users size={20} /></div>
-                    <div className="kpi-details">
-                        <span className="kpi-label">Filtered Records</span>
-                        <span className="kpi-value">{filteredData.length.toLocaleString()}</span>
-                    </div>
-                </div>
+    const renderOverview = () => {
+        const totalRows = isFiltered ? filteredData.length : (audit.rows_after || audit.sample_after?.length || 0);
+        const displaySum = isFiltered
+            ? filteredData.reduce((acc, c) => acc + parseSafeNumber(c[activeMetric]), 0)
+            : (profile[activeMetric]?.sum || filteredData.reduce((acc, c) => acc + parseSafeNumber(c[activeMetric]), 0));
 
-                {/* DYNAMIC KPI 2: Sum (Numeric) OR Unique Count (Categorical) */}
-                <div className="pbi-kpi-card-modern" title={isCountMetric ? `Number of unique ${primaryCat} values found` : `Sum of ${activeMetric} for filtered records`}>
-                    <div className="kpi-icon-box blue">{isCountMetric ? <Layers size={20} /> : <DollarSign size={20} />}</div>
-                    <div className="kpi-details">
-                        <span className="kpi-label">{isCountMetric ? `Unique ${primaryCat}` : `Total ${activeMetric}`}</span>
-                        <span className="kpi-value">
-                            {isCountMetric
-                                ? uniqueCats.toLocaleString()
-                                : <>{activeMetric.toLowerCase().match(/revenue|cost|price|fee|amount|usd|val/) ? '$' : ''}{filteredData.reduce((acc, c) => acc + parseSafeNumber(c[activeMetric]), 0).toLocaleString()}</>
-                            }
-                        </span>
-                    </div>
-                </div>
+        const displayAvg = isFiltered
+            ? (displaySum / (filteredData.length || 1))
+            : (profile[activeMetric]?.mean || (displaySum / (totalRows || 1)));
 
-                {/* DYNAMIC KPI 3: Avg (Numeric) OR Top Category (Categorical) */}
-                <div className="pbi-kpi-card-modern" title={isCountMetric ? `The ${primaryCat} that appears most frequently` : `Average ${activeMetric} per record`}>
-                    <div className="kpi-icon-box blue">{isCountMetric ? <Target size={20} /> : <TrendingUp size={20} />}</div>
-                    <div className="kpi-details">
-                        <span className="kpi-label">{isCountMetric ? `Top ${primaryCat}` : `Avg ${activeMetric}`}</span>
-                        <span className="kpi-value" style={isCountMetric ? { fontSize: '18px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' } : {}}>
-                            {isCountMetric
-                                ? (topCat ? topCat[0] : 'N/A')
-                                : (filteredData.reduce((acc, c) => acc + parseSafeNumber(c[activeMetric]), 0) / (filteredData.length || 1)).toFixed(2)
-                            }
-                        </span>
-                    </div>
-                </div>
-                <div className="pbi-kpi-card-modern" title="Overall data quality score based on missing values and anomalies">
-                    <div className="kpi-icon-box blue"><Database size={20} /></div>
-                    <div className="kpi-details">
-                        <span className="kpi-label">Quality Score</span>
-                        <span className="kpi-value">{audit.quality_score}%</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Visuals Area */}
-            <div className="pbi-visuals-grid-modern">
-                <div className="pbi-chart-card-modern span-2">
-                    <div className="chart-header">
-                        <div className="chart-title-group">
-                            <h3>{isCountMetric ? 'Record Count' : activeMetric} by {catCols[0] || 'Category'}</h3>
-                            <p className="chart-subtitle">{activeFile.originalName}</p>
+        return (
+            <div className="pbi-page-content">
+                {/* KPI Grid - High Density */}
+                <div className="pbi-premium-kpi-grid">
+                    <div className="pbi-kpi-card-modern" title="Total records in view">
+                        <div className="kpi-icon-box blue"><Users size={20} /></div>
+                        <div className="kpi-details">
+                            <span className="kpi-label">{isFiltered ? 'Filtered' : 'Total'} Records</span>
+                            <span className="kpi-value">{totalRows.toLocaleString()}</span>
                         </div>
-                        <MoreHorizontal size={16} className="text-muted" />
                     </div>
-                    <div className="chart-body-container">
-                        <ResponsiveContainer width="100%" height={280}>
-                            <ComposedChart data={
-                                // Prepare data for chart: Group by Category and Sum Metric (or Count)
-                                Object.entries(filteredData.reduce((acc, row) => {
-                                    const key = row[catCols[0]] || 'Unknown';
-                                    const val = isCountMetric ? 1 : parseSafeNumber(row[activeMetric]);
-                                    acc[key] = (acc[key] || 0) + val;
-                                    return acc;
-                                }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 8)
-                            }>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
-                                <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
-                                <Tooltip contentStyle={{ background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--text-main)' }} />
-                                <Bar dataKey="value" name={isCountMetric ? 'Count' : activeMetric} fill="var(--accent)" radius={[4, 4, 0, 0]} barSize={40} />
-                                <Line type="monotone" dataKey="value" stroke="var(--text-main)" strokeWidth={3} dot={{ r: 4, fill: 'var(--text-main)' }} />
-                            </ComposedChart>
-                        </ResponsiveContainer>
+
+                    <div className="pbi-kpi-card-modern" title={isCountMetric ? `Unique ${primaryCat} values` : `Sum of ${activeMetric}`}>
+                        <div className="kpi-icon-box blue">{isCountMetric ? <Layers size={20} /> : <DollarSign size={20} />}</div>
+                        <div className="kpi-details">
+                            <span className="kpi-label">{isCountMetric ? `Unique ${primaryCat}` : `Total ${activeMetric}`}</span>
+                            <span className="kpi-value" style={{ fontSize: displaySum > 1000000 ? '20px' : '24px' }}>
+                                {isCountMetric
+                                    ? (isFiltered ? uniqueCats : (profile[primaryCat]?.unique_count || uniqueCats)).toLocaleString()
+                                    : <>{activeMetric.toLowerCase().match(/revenue|cost|price|fee|amount|usd|val/) ? '$' : ''}{displaySum.toLocaleString()}</>
+                                }
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="pbi-kpi-card-modern" title={isCountMetric ? `Top ${primaryCat}` : `Average ${activeMetric}`}>
+                        <div className="kpi-icon-box blue">{isCountMetric ? <Target size={20} /> : <TrendingUp size={20} />}</div>
+                        <div className="kpi-details">
+                            <span className="kpi-label">{isCountMetric ? `Top ${primaryCat}` : `Avg ${activeMetric}`}</span>
+                            <span className="kpi-value" style={isCountMetric ? { fontSize: '18px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' } : {}}>
+                                {isCountMetric
+                                    ? (topCat ? topCat[0] : 'N/A')
+                                    : displayAvg.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+                                }
+                            </span>
+                        </div>
+                    </div>
+                    <div className="pbi-kpi-card-modern">
+                        <div className="kpi-icon-box blue"><Database size={20} /></div>
+                        <div className="kpi-details">
+                            <span className="kpi-label">Quality Score</span>
+                            <span className="kpi-value">{audit.quality_score}%</span>
+                        </div>
                     </div>
                 </div>
 
-                <div className="pbi-chart-card-modern">
-                    <div className="chart-header">
-                        <h3>Distribution</h3>
-                        <PieChart size={16} className="text-muted" />
+                {/* Main Visuals Area */}
+                <div className="pbi-visuals-grid-modern">
+                    <div className="pbi-chart-card-modern span-2">
+                        <div className="chart-header">
+                            <div className="chart-title-group">
+                                <h3>{isCountMetric ? 'Record Count' : activeMetric} by {catCols[0] || 'Category'}</h3>
+                                <p className="chart-subtitle">{activeFile.originalName}</p>
+                            </div>
+                            <MoreHorizontal size={16} className="text-muted" />
+                        </div>
+                        <div className="chart-body-container">
+                            <ResponsiveContainer width="100%" height={280}>
+                                <ComposedChart data={
+                                    // Prepare data for chart: Group by Category and Sum Metric (or Count)
+                                    Object.entries(filteredData.reduce((acc, row) => {
+                                        const key = row[catCols[0]] || 'Unknown';
+                                        const val = isCountMetric ? 1 : parseSafeNumber(row[activeMetric]);
+                                        acc[key] = (acc[key] || 0) + val;
+                                        return acc;
+                                    }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 8)
+                                }>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                                    <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
+                                    <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
+                                    <Tooltip contentStyle={{ background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--text-main)' }} />
+                                    <Bar dataKey="value" name={isCountMetric ? 'Count' : activeMetric} fill="var(--accent)" radius={[4, 4, 0, 0]} barSize={40} />
+                                    <Line type="monotone" dataKey="value" stroke="var(--text-main)" strokeWidth={3} dot={{ r: 4, fill: 'var(--text-main)' }} />
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
-                    <ResponsiveContainer width="100%" height={280}>
-                        <PieChart>
-                            <Pie
-                                data={catCols[1] || catCols[0] ? Object.entries(filteredData.reduce((acc, row) => {
-                                    const key = row[catCols[1] || catCols[0]] || 'Unknown';
-                                    acc[key] = (acc[key] || 0) + 1; // Count distribution always works best for pie
-                                    return acc;
-                                }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value) : [{ name: 'Data', value: 100 }]}
-                                cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value"
-                            >
-                                {PB_COLORS.map((c, i) => <Cell key={i} fill={c} />)}
-                            </Pie>
-                            <Tooltip />
-                            <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
 
-                <div className="pbi-chart-card-modern">
-                    <div className="chart-header">
-                        <h3>Top {isCountMetric ? 'Categories' : 'Insights'}</h3>
-                        <Maximize2 size={16} className="text-muted" />
-                    </div>
-                    <div className="chart-body-container">
+                    <div className="pbi-chart-card-modern">
+                        <div className="chart-header">
+                            <h3>Distribution</h3>
+                            <PieChart size={16} className="text-muted" />
+                        </div>
                         <ResponsiveContainer width="100%" height={280}>
-                            <BarChart layout="vertical" data={
-                                // Prepare Top Insights Data
-                                Object.entries(filteredData.reduce((acc, row) => {
-                                    const key = row[catCols[1] || catCols[0]] || 'Unknown';
-                                    const val = isCountMetric ? 1 : parseSafeNumber(row[activeMetric]);
-                                    acc[key] = (acc[key] || 0) + val;
-                                    return acc;
-                                }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5)
-                            }>
-                                <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" fontSize={10} axisLine={false} tickLine={false} width={80} tick={{ fill: 'var(--text-muted)' }} />
+                            <PieChart>
+                                <Pie
+                                    data={catCols[1] || catCols[0] ? Object.entries(filteredData.reduce((acc, row) => {
+                                        const key = row[catCols[1] || catCols[0]] || 'Unknown';
+                                        acc[key] = (acc[key] || 0) + 1; // Count distribution always works best for pie
+                                        return acc;
+                                    }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value) : [{ name: 'Data', value: 100 }]}
+                                    cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value"
+                                >
+                                    {PB_COLORS.map((c, i) => <Cell key={i} fill={c} />)}
+                                </Pie>
                                 <Tooltip />
-                                <Bar dataKey="value" fill="var(--bg-primary)" radius={[0, 4, 4, 0]} />
-                            </BarChart>
+                                <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+                            </PieChart>
                         </ResponsiveContainer>
+                    </div>
+
+                    <div className="pbi-chart-card-modern">
+                        <div className="chart-header">
+                            <h3>Top {isCountMetric ? 'Categories' : 'Insights'}</h3>
+                            <Maximize2 size={16} className="text-muted" />
+                        </div>
+                        <div className="chart-body-container">
+                            <ResponsiveContainer width="100%" height={280}>
+                                <BarChart layout="vertical" data={
+                                    // Prepare Top Insights Data
+                                    Object.entries(filteredData.reduce((acc, row) => {
+                                        const key = row[catCols[1] || catCols[0]] || 'Unknown';
+                                        const val = isCountMetric ? 1 : parseSafeNumber(row[activeMetric]);
+                                        acc[key] = (acc[key] || 0) + val;
+                                        return acc;
+                                    }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5)
+                                }>
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="name" type="category" fontSize={10} axisLine={false} tickLine={false} width={80} tick={{ fill: 'var(--text-muted)' }} />
+                                    <Tooltip />
+                                    <Bar dataKey="value" fill="var(--bg-primary)" radius={[0, 4, 4, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     const renderTimeAnalysis = () => (
         <div className="pbi-page-content">
@@ -434,7 +461,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                     </div>
 
                     <div className="pane-section">
-                        {catCols.map(col => (
+                        {catCols.slice(0, 5).map(col => (
                             <div key={col} className="filter-card">
                                 <div
                                     className="filter-card-header"
@@ -446,14 +473,15 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                                 </div>
                                 {!collapsedSlicers[col] && (
                                     <div className="filter-options-list">
-                                        {[...new Set(audit.sample_after.map(d => d[col]))].slice(0, 8).map(val => (
-                                            <label key={val} className="filter-option">
+                                        {[...new Set(audit.sample_after.map(d => (d[col] === null || d[col] === undefined) ? "null" : String(d[col])))].slice(0, 15).map(val => (
+                                            <label key={val} className="filter-option" style={{ cursor: 'pointer' }}>
                                                 <input
                                                     type="checkbox"
-                                                    checked={selectedFilters[col] === val}
+                                                    checked={(selectedFilters[col] || []).includes(val)}
                                                     onChange={() => toggleFilter(col, val)}
+                                                    style={{ cursor: 'pointer' }}
                                                 />
-                                                <span>{val}</span>
+                                                <span style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val}</span>
                                             </label>
                                         ))}
                                     </div>
