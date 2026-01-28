@@ -1342,6 +1342,8 @@ a,
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .filter-option {
@@ -3394,131 +3396,133 @@ a,
 
 .mt-8 {
   margin-top: 2rem;
-}/* Header and Buttons Rewrite */
+}
+
+/* Header and Buttons Rewrite */
 
 /* Modern Header Container */
 .pbi-modern-header {
-    height: 64px;
-    background-color: white;
-    /* Clean white header as per reference */
-    border-bottom: 1px solid #e1dfdd;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    /* Push left and right apart */
-    padding: 0 24px;
-    flex-shrink: 0;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
+  height: 64px;
+  background-color: white;
+  /* Clean white header as per reference */
+  border-bottom: 1px solid #e1dfdd;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* Push left and right apart */
+  padding: 0 24px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
 }
 
 .header-left {
-    display: flex;
-    align-items: center;
+  display: flex;
+  align-items: center;
 }
 
 .header-title-divider {
-    width: 1px;
-    height: 24px;
-    background-color: #c8c6c4;
-    margin: 0 16px;
+  width: 1px;
+  height: 24px;
+  background-color: #c8c6c4;
+  margin: 0 16px;
 }
 
 .pbi-modern-header h1 {
-    font-size: 20px;
-    font-weight: 600;
-    color: #252423;
-    margin: 0;
-    line-height: 1.2;
+  font-size: 20px;
+  font-weight: 600;
+  color: #252423;
+  margin: 0;
+  line-height: 1.2;
 }
 
 .pbi-modern-header .breadcrumb {
-    font-size: 12px;
-    color: #605e5c;
-    margin: 0;
+  font-size: 12px;
+  color: #605e5c;
+  margin: 0;
 }
 
 /* Header Tools (Right Side) */
 .header-right {
-    display: flex;
-    align-items: center;
+  display: flex;
+  align-items: center;
 }
 
 .header-tools {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 /* Updated Button Styles */
 .tool-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    background-color: white;
-    border: 1px solid #d1d1d1;
-    /* Standard border */
-    border-radius: 4px;
-    /* Less rounded - Standard UI */
-    color: #252423;
-    font-weight: 600;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: white;
+  border: 1px solid #d1d1d1;
+  /* Standard border */
+  border-radius: 4px;
+  /* Less rounded - Standard UI */
+  color: #252423;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .tool-btn:hover {
-    background-color: #f3f2f1;
-    border-color: #a19f9d;
+  background-color: #f3f2f1;
+  border-color: #a19f9d;
 }
 
 .tool-btn.highlight {
-    background-color: #252423;
-    color: white;
-    border: 1px solid #252423;
+  background-color: #252423;
+  color: white;
+  border: 1px solid #252423;
 }
 
 .tool-btn.highlight:hover {
-    background-color: #3b3a39;
+  background-color: #3b3a39;
 }
 
 /* Back Button - Updated */
 .back-link-btn {
-    background: white;
-    color: #252423;
-    border: 1px solid #d1d1d1;
-    padding: 8px 16px;
-    border-radius: 4px;
-    /* Less rounded (was 99px) */
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.2s;
-    box-shadow: none;
-    /* Cleaner look */
+  background: white;
+  color: #252423;
+  border: 1px solid #d1d1d1;
+  padding: 8px 16px;
+  border-radius: 4px;
+  /* Less rounded (was 99px) */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  box-shadow: none;
+  /* Cleaner look */
 }
 
 .back-link-btn:hover {
-    background-color: #f3f2f1;
-    border-color: #a19f9d;
-    transform: none;
-    /* Remove funky movement */
+  background-color: #f3f2f1;
+  border-color: #a19f9d;
+  transform: none;
+  /* Remove funky movement */
 }
 
 /* Source Select Dropdown */
 .source-select-premium {
-    padding: 8px 12px;
-    border: 1px solid #d1d1d1;
-    border-radius: 4px;
-    font-size: 14px;
-    color: #252423;
-    background: white;
-    outline: none;
-    cursor: pointer;
+  padding: 8px 12px;
+  border: 1px solid #d1d1d1;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #252423;
+  background: white;
+  outline: none;
+  cursor: pointer;
 }
 
 .source-select-premium:focus {
-    border-color: #0078d4;
+  border-color: #0078d4;
 }
