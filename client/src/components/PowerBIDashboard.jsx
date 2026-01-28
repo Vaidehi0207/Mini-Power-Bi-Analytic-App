@@ -99,8 +99,10 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
     // 2. INTERACTIVE FILTER LOGIC (Multi-select)
     const filteredData = useMemo(() => {
         let data = audit.sample_after || [];
+        if (!Array.isArray(data)) return [];
+
         Object.entries(selectedFilters).forEach(([col, vals]) => {
-            if (vals && vals.length > 0) {
+            if (vals && Array.isArray(vals) && vals.length > 0) {
                 data = data.filter(item => {
                     const itemVal = item[col];
                     const normalizedItemVal = (itemVal === null || itemVal === undefined) ? "null" : String(itemVal);
@@ -111,13 +113,25 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
         return data;
     }, [audit.sample_after, selectedFilters]);
 
+    const isFiltered = useMemo(() =>
+        Object.values(selectedFilters).some(vals => vals && Array.isArray(vals) && vals.length > 0)
+        , [selectedFilters]);
+
+    const clearAllFilters = () => setSelectedFilters({});
+
     const toggleFilter = (col, val) => {
         const stringVal = (val === null || val === undefined) ? "null" : String(val);
         setSelectedFilters(prev => {
             const currentVals = prev[col] || [];
             if (currentVals.includes(stringVal)) {
                 const nextVals = currentVals.filter(v => v !== stringVal);
-                return { ...prev, [col]: nextVals.length > 0 ? nextVals : null };
+                const newFilters = { ...prev };
+                if (nextVals.length > 0) {
+                    newFilters[col] = nextVals;
+                } else {
+                    delete newFilters[col];
+                }
+                return newFilters;
             } else {
                 return { ...prev, [col]: [...currentVals, stringVal] };
             }
@@ -136,10 +150,6 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
         }, {});
         return Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
     }, [filteredData, primaryCat]);
-
-
-
-    const isFiltered = useMemo(() => Object.values(selectedFilters).some(v => v !== null), [selectedFilters]);
 
     // Sub-renderers for pages
     const renderOverview = () => {
@@ -457,11 +467,16 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                 <aside className="pbi-premium-filter-pane glass">
                     <div className="pane-header">
                         <h2>Slicers</h2>
+                        {isFiltered && (
+                            <button className="clear-filters-btn" onClick={clearAllFilters}>
+                                <RefreshCw size={12} /> Clear All
+                            </button>
+                        )}
                         <ChevronDown size={16} />
                     </div>
 
-                    <div className="pane-section">
-                        {catCols.slice(0, 5).map(col => (
+                    <div className="pane-section overflow-y-auto" style={{ flex: 1 }}>
+                        {catCols.map(col => (
                             <div key={col} className="filter-card">
                                 <div
                                     className="filter-card-header"
@@ -473,17 +488,21 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                                 </div>
                                 {!collapsedSlicers[col] && (
                                     <div className="filter-options-list">
-                                        {[...new Set(audit.sample_after.map(d => (d[col] === null || d[col] === undefined) ? "null" : String(d[col])))].slice(0, 15).map(val => (
-                                            <label key={val} className="filter-option" style={{ cursor: 'pointer' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={(selectedFilters[col] || []).includes(val)}
-                                                    onChange={() => toggleFilter(col, val)}
-                                                    style={{ cursor: 'pointer' }}
-                                                />
-                                                <span style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val}</span>
-                                            </label>
-                                        ))}
+                                        {(audit.sample_after || [])
+                                            .map(d => (d[col] === null || d[col] === undefined) ? "null" : String(d[col]))
+                                            .filter((v, i, a) => a.indexOf(v) === i) // Unique
+                                            .slice(0, 20)
+                                            .map(val => (
+                                                <label key={val} className="filter-option" style={{ cursor: 'pointer' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={(selectedFilters[col] || []).includes(val)}
+                                                        onChange={() => toggleFilter(col, val)}
+                                                        style={{ cursor: 'pointer' }}
+                                                    />
+                                                    <span style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val}</span>
+                                                </label>
+                                            ))}
                                     </div>
                                 )}
                             </div>

@@ -1303,6 +1303,40 @@ a,
   margin: 0;
 }
 
+.clear-filters-btn {
+  background: #f3f2f1;
+  border: 1px solid #edebe9;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: 12px;
+  transition: all 0.2s;
+}
+
+.clear-filters-btn:hover {
+  background: #e1dfdd;
+  color: #ef4444;
+}
+
+.pbi-main-viewport {
+  flex: 1;
+  min-width: 0;
+  /* CRITICAL: Allows flex child to shrink below content size */
+  display: flex;
+  flex-direction: column;
+}
+
+.pbi-kpi-card-modern {
+  flex-shrink: 1;
+  min-width: 150px;
+}
+
 .pane-section {
   padding: 16px;
   border-bottom: 1px solid #edebe9;
