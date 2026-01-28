@@ -119,6 +119,16 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
 
     const clearAllFilters = () => setSelectedFilters({});
 
+    // Memoize unique values for slicers to prevent performance lag
+    const slicerOptions = useMemo(() => {
+        const data = audit.sample_after || [];
+        const options = {};
+        catCols.forEach(col => {
+            options[col] = [...new Set(data.map(d => (d[col] === null || d[col] === undefined) ? "null" : String(d[col])))].slice(0, 25);
+        });
+        return options;
+    }, [audit.sample_after, catCols]);
+
     const toggleFilter = (col, val) => {
         const stringVal = (val === null || val === undefined) ? "null" : String(val);
         setSelectedFilters(prev => {
@@ -166,10 +176,10 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
             <div className="pbi-page-content">
                 {/* KPI Grid - High Density */}
                 <div className="pbi-premium-kpi-grid">
-                    <div className="pbi-kpi-card-modern" title="Total records in view">
+                    <div className="pbi-kpi-card-modern" title="Total records in view (Sample-based when filtered)">
                         <div className="kpi-icon-box blue"><Users size={20} /></div>
                         <div className="kpi-details">
-                            <span className="kpi-label">{isFiltered ? 'Filtered' : 'Total'} Records</span>
+                            <span className="kpi-label">{isFiltered ? 'Filtered Sample' : 'Total Records'}</span>
                             <span className="kpi-value">{totalRows.toLocaleString()}</span>
                         </div>
                     </div>
@@ -476,7 +486,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                     </div>
 
                     <div className="pane-section overflow-y-auto" style={{ flex: 1 }}>
-                        {catCols.map(col => (
+                        {catCols.slice(0, 10).map(col => (
                             <div key={col} className="filter-card">
                                 <div
                                     className="filter-card-header"
@@ -488,21 +498,17 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                                 </div>
                                 {!collapsedSlicers[col] && (
                                     <div className="filter-options-list">
-                                        {(audit.sample_after || [])
-                                            .map(d => (d[col] === null || d[col] === undefined) ? "null" : String(d[col]))
-                                            .filter((v, i, a) => a.indexOf(v) === i) // Unique
-                                            .slice(0, 20)
-                                            .map(val => (
-                                                <label key={val} className="filter-option" style={{ cursor: 'pointer' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={(selectedFilters[col] || []).includes(val)}
-                                                        onChange={() => toggleFilter(col, val)}
-                                                        style={{ cursor: 'pointer' }}
-                                                    />
-                                                    <span style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val}</span>
-                                                </label>
-                                            ))}
+                                        {(slicerOptions[col] || []).map(val => (
+                                            <label key={val} className="filter-option" style={{ cursor: 'pointer' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={(selectedFilters[col] || []).includes(val)}
+                                                    onChange={() => toggleFilter(col, val)}
+                                                    style={{ cursor: 'pointer' }}
+                                                />
+                                                <span style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val}</span>
+                                            </label>
+                                        ))}
                                     </div>
                                 )}
                             </div>
