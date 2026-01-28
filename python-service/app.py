@@ -95,7 +95,7 @@ def process_file():
         # 3. Missing Value Handling
         for col in df.columns:
             if df[col].isnull().any():
-                if np.issubdtype(df[col].dtype, np.number):
+                if pd.api.types.is_numeric_dtype(df[col]):
                     df[col].fillna(df[col].median(), inplace=True)
                 else:
                     df[col].fillna("Unknown", inplace=True)
@@ -144,7 +144,7 @@ def process_file():
                 "health": "healthy" if nulls == 0 else "warning" if nulls < len(df) * 0.2 else "critical"
             }
             
-            if np.issubdtype(df[col].dtype, np.number):
+            if pd.api.types.is_numeric_dtype(df[col]):
                 profile["min"] = float(df[col].min()) if not df[col].empty else 0
                 profile["max"] = float(df[col].max()) if not df[col].empty else 0
                 profile["mean"] = float(df[col].mean()) if not df[col].empty else 0
