@@ -56,7 +56,6 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
     }, [fileList, audit, selectedSourceIndex]);
     const [activePage, setActivePage] = useState('overview');
     const [selectedFilters, setSelectedFilters] = useState({}); // Stores { column: [val1, val2] }
-
     const isAlteryx = useMemo(() => {
         if (selectedSourceIndex === -1) {
             return fileList.some(f => f.auditLogs?.engine === 'Alteryx Premium');
@@ -70,7 +69,6 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
             setActivePage('overview');
         }
     }, [activePage, isAlteryx]);
-
 
     const [isFilterPaneOpen, setIsFilterPaneOpen] = useState(true);
     const [collapsedSlicers, setCollapsedSlicers] = useState({});
@@ -172,9 +170,9 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
 
 
     // 2. INTERACTIVE FILTER LOGIC (Multi-select)
-    // 2. INTERACTIVE FILTER LOGIC (Multi-select)
     const filteredData = useMemo(() => {
         let data = combinedData;
+
         Object.entries(selectedFilters).forEach(([col, vals]) => {
             if (vals && vals.length > 0) {
                 data = data.filter(item => {
@@ -323,6 +321,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                             <p className="text-muted">No advanced statistics available for categorical data.</p>
                         </div>
                     )}
+
                 </div>
             </div>
         );
@@ -486,6 +485,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
             </div>
         );
     };
+
 
     const renderTimeAnalysis = () => (
         <div className="pbi-page-content">
@@ -718,6 +718,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                                 {!collapsedSlicers[col] && (
                                     <div className="filter-options-list">
                                         {[...new Set(combinedData.map(d => (d[col] === null || d[col] === undefined) ? "null" : String(d[col])))].slice(0, 15).map(val => (
+
                                             <label key={val} className="filter-option" style={{ cursor: 'pointer' }}>
                                                 <input
                                                     type="checkbox"

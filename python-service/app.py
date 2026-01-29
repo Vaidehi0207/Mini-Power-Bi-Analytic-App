@@ -158,6 +158,7 @@ def process_file():
                 kurt = df[col].kurtosis()
                 profile["skewness"] = float(skew) if pd.notnull(skew) else 0
                 profile["kurtosis"] = float(kurt) if pd.notnull(kurt) else 0
+
             
             column_profile[col] = profile
 
