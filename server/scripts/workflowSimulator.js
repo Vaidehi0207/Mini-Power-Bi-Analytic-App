@@ -57,26 +57,40 @@ const simulateAlteryxAPI = async (filename, inputPath, outputPath) => {
         }
     };
 
+    const enterpriseAudit = {
+        ...baseAudit,
+        engine: 'Alteryx Premium',
+        action: 'Enterprise Data Blending & Quality Audit',
+        quality_score: Math.min(100, (baseAudit.quality_score || 95) + 2),
+        column_profile: {
+            ...baseAudit.column_profile,
+            "charge_amount": { type: "number", mean: 450.5, sum: 850000, skewness: 0.85, kurtosis: 1.2, health: "excellent" },
+            "payment_status": { type: "string", unique_count: 4, top: "Paid", health: "healthy" }
+        },
+        enterpriseInsights: {
+            sources_blended: ['CSV Input', 'Cloud SQL Server', 'Salesforce CRM'],
+            match_confidence: '99.4%',
+            governance: 'GDPR Compliant',
+            data_lineage: 'Source -> Formula -> Fuzzy Match -> Output',
+            fuzzy_matches: 12
+        },
+        mathematical_insights: [
+            "Enterprise Audit: Data lineage verified for all columns.",
+            "Blending: Successfully merged with Salesforce CRM database.",
+            "Compliance: No PII (Personally Identifiable Information) detected.",
+            "Profile: 'charge_amount' shows moderate positive skewness (0.85).",
+            "Optimization: Found 12 fuzzy matches in customer names across sources."
+        ]
+    };
+
     return {
         jobId: `alt-job-${Date.now()}`,
         status: 'Success',
         engine: 'Alteryx Premium (AEP)',
-        workflow: 'Master_Data_Blending_V4.yxmd',
-        audit: {
-            ...baseAudit,
-            engine: 'Alteryx Premium',
-            action: 'API-Driven Data Enrichment & Blending',
-
-            // Data Blending Simulation
-            blendingInsights: {
-                sources_joined: ['Local File', 'Alteryx Cloud (SQL Server)'],
-                match_type: 'Inner Join',
-                records_matched: baseAudit.rows_after || 0,
-                join_keys: Object.keys(baseAudit.column_profile || {}).slice(0, 1),
-                fuzzy_confidence: '99%'
-            }
-        }
+        workflow: 'Enterprise_Data_Blending_v4.yxmd',
+        audit: enterpriseAudit
     };
+
 };
 
 module.exports = { simulateAlteryxAPI };

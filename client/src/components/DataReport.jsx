@@ -149,12 +149,14 @@ const DataReport = ({ file, onClose, onExplorePBI }) => {
                     >
                         Insights Summary
                     </button>
-                    <button
-                        className={`tab-btn ${activeTab === 'workflow' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('workflow')}
-                    >
-                        Alteryx Workflow View
-                    </button>
+                    {file.processingType === 'premium' && (
+                        <button
+                            className={`tab-btn ${activeTab === 'workflow' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('workflow')}
+                        >
+                            Alteryx Workflow View
+                        </button>
+                    )}
                     <button
                         className={`tab-btn ${activeTab === 'profile' ? 'active' : ''}`}
                         onClick={() => setActiveTab('profile')}
@@ -162,6 +164,7 @@ const DataReport = ({ file, onClose, onExplorePBI }) => {
                         Data Health & Profiling
                     </button>
                 </div>
+
 
                 {activeTab === 'workflow' ? (
                     <WorkflowCanvas file={file} />
