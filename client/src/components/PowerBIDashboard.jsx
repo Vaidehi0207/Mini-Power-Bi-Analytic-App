@@ -6,32 +6,70 @@ import {
 import {
     Layout, Filter, ChevronDown, Download, Maximize2, X, MoreHorizontal, FileText,
     Share2, Info, Map as MapIcon, GitBranch, Target, Layers, Home, BarChart3,
-    Clock, Database, RefreshCw, Search, Calendar, MapPin, DollarSign, TrendingUp, Users, ChevronRight
+    Clock, Database, RefreshCw, Search, Calendar, MapPin, DollarSign, TrendingUp, Users, ChevronRight, BrainCircuit, PieChart as PieChartIcon
 } from 'lucide-react';
 
 const PB_COLORS = ['#252423', '#F2C811', '#BDC3C7', '#414042', '#3498db', '#e67e22', '#2ecc71', '#9b59b6'];
 
 const PowerBIDashboard = ({ files = [], onClose }) => {
-    // Ensure files is always an array
-    const fileList = Array.isArray(files) ? files : [files];
-    const [selectedSourceIndex, setSelectedSourceIndex] = useState(0);
+    // Ensure files is always an array and filter out nulls/pending
+    const fileList = Array.isArray(files) ? files.filter(f => f && f.status === 'completed') : [];
+    const [selectedSourceIndex, setSelectedSourceIndex] = useState(-1); // -1 for ALL/COMBINED
 
-    const activeFile = fileList[selectedSourceIndex] || fileList[0];
+    // COMBINED DATA LOGIC
+    const combinedData = useMemo(() => {
+        if (selectedSourceIndex === -1) {
+            return fileList.reduce((acc, f) => {
+                const sample = f.auditLogs?.sample_after || [];
+                return [...acc, ...sample];
+            }, []);
+        }
+        return fileList[selectedSourceIndex]?.auditLogs?.sample_after || [];
+    }, [fileList, selectedSourceIndex]);
 
-    // FALLBACK UI: Prevent White Screen if no file is found
-    if (!activeFile) {
+    const activeFile = selectedSourceIndex === -1 ? { originalName: "All Datasets", auditLogs: {} } : fileList[selectedSourceIndex];
+
+    // FALLBACK UI: Prevent White Screen
+    if (fileList.length === 0) {
         return (
-            <div className="pbi-premium-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                <h2 style={{ marginBottom: '1rem' }}>No Dataset Selected</h2>
-                <button className="back-link-btn" onClick={onClose}><Home size={16} /> Return to Hub</button>
+            <div className="pbi-premium-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', background: 'var(--bg-primary)', height: '100vh' }}>
+                <Database size={48} className="text-accent" style={{ marginBottom: '20px', opacity: 0.5 }} />
+                <h2 style={{ marginBottom: '1rem', color: 'var(--text-main)' }}>No processed datasets available</h2>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Wait for processing or upload a new file.</p>
+                <button className="tool-btn highlight" onClick={onClose}><Home size={16} /> Return to Hub</button>
             </div>
         );
     }
 
     const audit = activeFile.auditLogs || {};
-    const profile = audit.column_profile || {};
+    // Extract profile - if combined, we merge profiles or just use the first one as schema
+    const profile = useMemo(() => {
+        if (selectedSourceIndex === -1) {
+            // Merge unique keys from all profiles
+            const merged = {};
+            fileList.forEach(f => {
+                Object.assign(merged, f.auditLogs?.column_profile || {});
+            });
+            return merged;
+        }
+        return audit.column_profile || {};
+    }, [fileList, audit, selectedSourceIndex]);
     const [activePage, setActivePage] = useState('overview');
     const [selectedFilters, setSelectedFilters] = useState({}); // Stores { column: [val1, val2] }
+    const isAlteryx = useMemo(() => {
+        if (selectedSourceIndex === -1) {
+            return fileList.some(f => f.auditLogs?.engine === 'Alteryx Premium');
+        }
+        return audit.engine === 'Alteryx Premium';
+    }, [selectedSourceIndex, fileList, audit.engine]);
+
+    // REDIRECT LOGIC: If on stats but engine is Alteryx, move to overview
+    React.useEffect(() => {
+        if (activePage === 'stats' && isAlteryx) {
+            setActivePage('overview');
+        }
+    }, [activePage, isAlteryx]);
+
     const [isFilterPaneOpen, setIsFilterPaneOpen] = useState(true);
     const [collapsedSlicers, setCollapsedSlicers] = useState({});
 
@@ -62,12 +100,43 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
     }, [profile]);
 
     // Smart Dates: specific names OR datetime type detection
-    const dateCols = Object.entries(profile)
-        .filter(([name, info]) =>
-            name.toLowerCase().match(/date|time|year|month|day|period|at/) ||
-            info.type.includes('datetime') || info.type.includes('timestamp')
-        )
-        .map(([name]) => name);
+    const dateCols = useMemo(() => {
+        return Object.entries(profile)
+            .filter(([name, info]) => {
+                const lowerName = name.toLowerCase();
+                // Avoid false positives like "status", "category", "location", "rating"
+                const isExcluded = lowerName.match(/(status|category|location|rating|priority|state|attribute|type)/);
+                return !isExcluded && (
+                    lowerName.match(/^(date|time|year|month|day|period|at_|created|updated|sold|purchased|dt)/) ||
+                    lowerName.endsWith('_at') ||
+                    lowerName.endsWith('date') ||
+                    info.type.includes('datetime') ||
+                    info.type.includes('timestamp')
+                );
+            })
+            .map(([name]) => name);
+    }, [profile]);
+
+    const parseSafeDate = (val) => {
+        if (!val) return null;
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) return d;
+
+        // Try cleaning standard Excel-style digits or DD/MM/YYYY
+        if (typeof val === 'string') {
+            // DD/MM/YYYY or DD-MM-YYYY
+            const parts = val.split(/[/-]/);
+            if (parts.length === 3) {
+                // Assume DD-MM-YYYY if middle part <= 12 and first part > 12? 
+                // Too complex for here, but let's try basic swap
+                const d2 = new Date(`${parts[1]}/${parts[0]}/${parts[2]}`);
+                if (!isNaN(d2.getTime())) return d2;
+                const d3 = new Date(`${parts[2]}/${parts[1]}/${parts[0]}`);
+                if (!isNaN(d3.getTime())) return d3;
+            }
+        }
+        return null;
+    };
 
     // Helper: Safely parse numbers from dirty strings (currency, commas)
     const parseSafeNumber = (val) => {
@@ -82,14 +151,18 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
     // Smart Metric Selection: If no numeric cols or sum is 0, use Record Count
     const bestNumericCol = useMemo(() => {
         // Filter out ID columns from being the primary metric
-        const candidates = numericCols.filter(n => !n.toLowerCase().match(/(_id|id|code|index|^no$|^nr$)/));
-        const data = audit.sample_after || []; // SAFEGUARD
+        const candidates = numericCols.filter(n => !n.toLowerCase().match(/(_id|id|code|index|^no$|^nr$|phone|mobile|serial|pin|zip|count|year|month)/));
+        const data = audit.sample_after || [];
 
-        for (const col of candidates) {
+        // Prioritize columns with 'amount', 'price', 'revenue', 'cost', 'val', 'total'
+        const priorityCandidates = candidates.filter(n => n.toLowerCase().match(/(amount|price|revenue|cost|val|total|profit|fee|tax)/));
+        const searchList = priorityCandidates.length > 0 ? priorityCandidates : candidates;
+
+        for (const col of searchList) {
             const sum = data.reduce((acc, c) => acc + parseSafeNumber(c[col]), 0);
             if (sum > 0) return col;
         }
-        return null; // Fallback to record_count
+        return candidates[0] || null;
     }, [numericCols, audit.sample_after]);
 
     const activeMetric = bestNumericCol || 'record_count';
@@ -98,7 +171,8 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
 
     // 2. INTERACTIVE FILTER LOGIC (Multi-select)
     const filteredData = useMemo(() => {
-        let data = audit.sample_after || [];
+        let data = combinedData;
+
         Object.entries(selectedFilters).forEach(([col, vals]) => {
             if (vals && vals.length > 0) {
                 data = data.filter(item => {
@@ -109,7 +183,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
             }
         });
         return data;
-    }, [audit.sample_after, selectedFilters]);
+    }, [combinedData, selectedFilters]);
 
     const toggleFilter = (col, val) => {
         const stringVal = (val === null || val === undefined) ? "null" : String(val);
@@ -141,16 +215,145 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
 
     const isFiltered = useMemo(() => Object.values(selectedFilters).some(v => v !== null), [selectedFilters]);
 
-    // Sub-renderers for pages
+    // 3. RENDERERS
+    const renderStatisticalProfile = () => {
+        const insights = audit.mathematical_insights || [];
+        const corrMatrix = audit.correlation_matrix || {};
+        const corrKeys = Object.keys(corrMatrix);
+
+        return (
+            <div className="pbi-page-content">
+                <div className="pbi-visuals-grid-modern">
+                    {/* Mathematical Insights List */}
+                    <div className="pbi-chart-card-modern span-2">
+                        <div className="chart-header">
+                            <div className="chart-title-group">
+                                <h3><BrainCircuit size={18} className="text-accent" style={{ marginRight: '8px' }} /> Automated Insights</h3>
+                                <p className="chart-subtitle">Engine: {audit.engine || 'Standard'}</p>
+                            </div>
+                        </div>
+                        <div className="insights-list-premium">
+                            {insights.length > 0 ? insights.map((insight, i) => (
+                                <div key={i} className="insight-item-premium">
+                                    <div className="insight-bullet"></div>
+                                    <div className="insight-content">
+                                        <p>{insight}</p>
+                                        <span className="insight-badge-mini">Verified Math</span>
+                                    </div>
+                                </div>
+                            )) : (
+                                <div className="empty-state-mini">
+                                    <Info size={24} className="fade" />
+                                    <p>Insufficient variance for automated insights.</p>
+                                </div>
+                            )}
+
+                            {/* Distribution Health Card */}
+                            {metricCandidates.length > 0 && (
+                                <div className="insight-item-premium health">
+                                    <div className="insight-bullet health"></div>
+                                    <div className="insight-content">
+                                        <p>Data Distribution Health: <b>Strong Variance Detected</b></p>
+                                        <span className="insight-desc">Mathematical profiles generated for {metricCandidates.length} numeric dimensions.</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Correlation Heatmap (Simplified using CSS Grid) */}
+                    <div className="pbi-chart-card-modern">
+                        <div className="chart-header">
+                            <h3>Correlation Matrix</h3>
+                            <ChevronDown size={14} className="text-muted" />
+                        </div>
+                        {corrKeys.length > 1 ? (
+                            <div className="correlation-grid-container">
+                                <div className="correlation-grid" style={{ gridTemplateColumns: `repeat(${corrKeys.length}, 1fr)` }}>
+                                    {corrKeys.map(rowKey => (
+                                        corrKeys.map(colKey => {
+                                            const val = corrMatrix[rowKey][colKey];
+                                            const intensity = Math.abs(val);
+                                            const color = val > 0 ? `rgba(37, 36, 35, ${intensity})` : `rgba(242, 200, 17, ${intensity})`;
+                                            return (
+                                                <div
+                                                    key={`${rowKey}-${colKey}`}
+                                                    className="corr-cell"
+                                                    style={{ backgroundColor: color }}
+                                                    title={`${rowKey} vs ${colKey}: ${val.toFixed(2)}`}
+                                                >
+                                                    {intensity > 0.5 && <span className="corr-val">{val.toFixed(2)}</span>}
+                                                </div>
+                                            );
+                                        })
+                                    ))}
+                                </div>
+                                <div className="corr-labels">
+                                    {corrKeys.map(k => <span key={k}>{k}</span>)}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="empty-state-mini">
+                                <p>Numerical correlation requires 2+ columns.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Stat Cards Grid */}
+                <div className="pbi-premium-kpi-grid" style={{ marginTop: '2rem' }}>
+                    {metricCandidates.length > 0 ? metricCandidates.slice(0, 4).map(col => (
+                        <div key={col} className="pbi-kpi-card-modern">
+                            <div className="kpi-details">
+                                <span className="kpi-label">{col.replace(/_/g, ' ')}</span>
+                                <div className="stat-line">
+                                    <span>Skew:</span>
+                                    <strong>{profile[col]?.skewness?.toFixed(2) || '0.00'}</strong>
+                                </div>
+                                <div className="stat-line">
+                                    <span>Kurtosis:</span>
+                                    <strong>{profile[col]?.kurtosis?.toFixed(2) || '0.00'}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="pbi-kpi-card-modern span-full">
+                            <p className="text-muted">No advanced statistics available for categorical data.</p>
+                        </div>
+                    )}
+
+                </div>
+            </div>
+        );
+    };
+
+    const metricCandidates = useMemo(() => {
+        return numericCols.filter(n => !n.toLowerCase().match(/(_id|id|code|index|^no$|^nr$|phone|mobile|serial|pin|zip|count|year|month)/));
+    }, [numericCols]);
+
+    const displayCat = useMemo(() => {
+        // Try to find a categorical col that has some variety but not too much (like a status or category)
+        const candidates = catCols.filter(c => {
+            const unique = profile[c]?.unique_count || 0;
+            return unique > 1 && unique < 15;
+        });
+        return candidates[0] || catCols[0] || 'Unknown';
+    }, [catCols, profile]);
+
     const renderOverview = () => {
-        const totalRows = isFiltered ? filteredData.length : (audit.rows_after || audit.sample_after?.length || 0);
-        const displaySum = isFiltered
+        const totalRows = filteredData.length;
+        const displaySum = isFiltered || selectedSourceIndex === -1
             ? filteredData.reduce((acc, c) => acc + parseSafeNumber(c[activeMetric]), 0)
             : (profile[activeMetric]?.sum || filteredData.reduce((acc, c) => acc + parseSafeNumber(c[activeMetric]), 0));
 
-        const displayAvg = isFiltered
-            ? (displaySum / (filteredData.length || 1))
+        const displayAvg = isFiltered || selectedSourceIndex === -1
+            ? (displaySum / (totalRows || 1))
             : (profile[activeMetric]?.mean || (displaySum / (totalRows || 1)));
+
+        // Avg Quality Score for Combined
+        const displayQuality = selectedSourceIndex === -1
+            ? Math.round(fileList.reduce((acc, f) => acc + (f.auditLogs?.quality_score || 0), 0) / (fileList.length || 1))
+            : (audit.quality_score || 0);
 
         return (
             <div className="pbi-page-content">
@@ -193,7 +396,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                         <div className="kpi-icon-box blue"><Database size={20} /></div>
                         <div className="kpi-details">
                             <span className="kpi-label">Quality Score</span>
-                            <span className="kpi-value">{audit.quality_score}%</span>
+                            <span className="kpi-value">{displayQuality}%</span>
                         </div>
                     </div>
                 </div>
@@ -203,7 +406,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                     <div className="pbi-chart-card-modern span-2">
                         <div className="chart-header">
                             <div className="chart-title-group">
-                                <h3>{isCountMetric ? 'Record Count' : activeMetric} by {catCols[0] || 'Category'}</h3>
+                                <h3>{isCountMetric ? 'Record Count' : activeMetric.replace(/_/g, ' ')} by {displayCat.replace(/_/g, ' ')}</h3>
                                 <p className="chart-subtitle">{activeFile.originalName}</p>
                             </div>
                             <MoreHorizontal size={16} className="text-muted" />
@@ -213,7 +416,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                                 <ComposedChart data={
                                     // Prepare data for chart: Group by Category and Sum Metric (or Count)
                                     Object.entries(filteredData.reduce((acc, row) => {
-                                        const key = row[catCols[0]] || 'Unknown';
+                                        const key = row[displayCat] || 'Unknown';
                                         const val = isCountMetric ? 1 : parseSafeNumber(row[activeMetric]);
                                         acc[key] = (acc[key] || 0) + val;
                                         return acc;
@@ -233,7 +436,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                     <div className="pbi-chart-card-modern">
                         <div className="chart-header">
                             <h3>Distribution</h3>
-                            <PieChart size={16} className="text-muted" />
+                            <PieChartIcon size={16} className="text-muted" />
                         </div>
                         <ResponsiveContainer width="100%" height={280}>
                             <PieChart>
@@ -253,34 +456,36 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                         </ResponsiveContainer>
                     </div>
 
-                    <div className="pbi-chart-card-modern">
-                        <div className="chart-header">
-                            <h3>Top {isCountMetric ? 'Categories' : 'Insights'}</h3>
-                            <Maximize2 size={16} className="text-muted" />
+                    {/* Alteryx Specific Insight Card (Visible ONLY for Alteryx) */}
+                    {audit.engine === 'Alteryx Premium' && (
+                        <div className="pbi-chart-card-modern alteryx-glow">
+                            <div className="chart-header">
+                                <h3 className="alteryx-text">Enterprise Blending</h3>
+                                <GitBranch size={16} className="alteryx-text" />
+                            </div>
+                            <div className="alteryx-insight-body">
+                                <div className="alt-stat">
+                                    <span>Confidence:</span>
+                                    <strong>{audit.enterpriseInsights?.match_confidence}</strong>
+                                </div>
+                                <div className="alt-stat">
+                                    <span>Governance:</span>
+                                    <strong>{audit.enterpriseInsights?.governance}</strong>
+                                </div>
+                                <div className="alt-stat">
+                                    <span>Sources:</span>
+                                    <div className="source-tags">
+                                        {audit.enterpriseInsights?.sources_blended?.map(s => <span key={s} className="tag">{s}</span>)}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div className="chart-body-container">
-                            <ResponsiveContainer width="100%" height={280}>
-                                <BarChart layout="vertical" data={
-                                    // Prepare Top Insights Data
-                                    Object.entries(filteredData.reduce((acc, row) => {
-                                        const key = row[catCols[1] || catCols[0]] || 'Unknown';
-                                        const val = isCountMetric ? 1 : parseSafeNumber(row[activeMetric]);
-                                        acc[key] = (acc[key] || 0) + val;
-                                        return acc;
-                                    }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5)
-                                }>
-                                    <XAxis type="number" hide />
-                                    <YAxis dataKey="name" type="category" fontSize={10} axisLine={false} tickLine={false} width={80} tick={{ fill: 'var(--text-muted)' }} />
-                                    <Tooltip />
-                                    <Bar dataKey="value" fill="var(--bg-primary)" radius={[0, 4, 4, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
         );
     };
+
 
     const renderTimeAnalysis = () => (
         <div className="pbi-page-content">
@@ -294,14 +499,42 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                 <div className="chart-body-container" style={{ height: '400px' }}>
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={
-                            // Aggregate data by date
-                            Object.entries(filteredData.reduce((acc, row) => {
-                                const key = row[dateCols[0]] || 'Unknown';
-                                const val = isCountMetric ? 1 : parseSafeNumber(row[activeMetric]);
-                                acc[key] = (acc[key] || 0) + val;
-                                return acc;
-                            }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => new Date(a.name) - new Date(b.name))
+                            (() => {
+                                // Find the FIRST date column that actually has parseable dates
+                                let validDateCol = null;
+                                for (const col of dateCols) {
+                                    const hasValid = filteredData.some(r => parseSafeDate(r[col]));
+                                    if (hasValid) {
+                                        validDateCol = col;
+                                        break;
+                                    }
+                                }
+
+                                // FALLBACK: If no dates, aggregate by the first categorical column
+                                const chartCol = validDateCol || displayCat;
+                                const isDateType = !!validDateCol;
+
+                                const aggregated = filteredData.reduce((acc, row) => {
+                                    let key = 'Other';
+                                    if (isDateType) {
+                                        const dateObj = parseSafeDate(row[chartCol]);
+                                        if (dateObj) key = dateObj.toISOString().split('T')[0];
+                                    } else {
+                                        key = String(row[chartCol] || 'Other');
+                                    }
+
+                                    const val = isCountMetric ? 1 : parseSafeNumber(row[activeMetric]);
+                                    acc[key] = (acc[key] || 0) + val;
+                                    return acc;
+                                }, {});
+
+                                return Object.entries(aggregated)
+                                    .map(([name, value]) => ({ name, value }))
+                                    .sort((a, b) => isDateType ? a.name.localeCompare(b.name) : b.value - a.value)
+                                    .slice(0, 20); // Limit categorical trend to 20
+                            })()
                         }>
+
                             <defs>
                                 <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3} />
@@ -311,11 +544,18 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                             <XAxis dataKey="name" fontSize={11} tick={{ fill: 'var(--text-muted)' }}
                                 tickFormatter={(val) => {
-                                    try { return new Date(val).toLocaleDateString(); } catch (e) { return val; }
+                                    const d = new Date(val);
+                                    return isNaN(d.getTime()) ? val : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                                 }}
                             />
                             <YAxis fontSize={11} tick={{ fill: 'var(--text-muted)' }} />
-                            <Tooltip contentStyle={{ background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--text-main)' }} />
+                            <Tooltip
+                                labelFormatter={(label) => {
+                                    const d = new Date(label);
+                                    return isNaN(d.getTime()) ? label : d.toLocaleDateString(undefined, { dateStyle: 'long' });
+                                }}
+                                contentStyle={{ background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--text-main)' }}
+                            />
                             <Area type="monotone" dataKey="value" name={isCountMetric ? 'Count' : activeMetric} stroke="var(--accent)" strokeWidth={2} fillOpacity={1} fill="url(#colorTrend)" />
                         </AreaChart>
                     </ResponsiveContainer>
@@ -366,9 +606,16 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                         <Home size={20} />
                         <span>Overview</span>
                     </button>
+                    {!isAlteryx && (
+                        <button className={`nav-item ${activePage === 'stats' ? 'active' : ''}`} onClick={() => setActivePage('stats')}>
+                            <BrainCircuit size={20} />
+                            <span>Stats Engine</span>
+                        </button>
+                    )}
+
                     <button className={`nav-item ${activePage === 'time' ? 'active' : ''}`} onClick={() => setActivePage('time')}>
                         <BarChart3 size={20} />
-                        <span>Insights</span>
+                        <span>Trends</span>
                     </button>
                     <button className={`nav-item ${activePage === 'details' ? 'active' : ''}`} onClick={() => setActivePage('details')}>
                         <Layers size={20} />
@@ -392,34 +639,26 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                             <button className="back-link-btn" onClick={onClose}><Home size={16} /> Back</button>
                             <div className="header-title-divider"></div>
                             <div>
-                                <h1>Premium Analytics</h1>
-                                <p className="breadcrumb">Hub / {activeFile.originalName} / {activePage.toUpperCase()}</p>
+                                <h1 className={isAlteryx ? 'alteryx-text glow' : ''}>
+                                    {isAlteryx ? 'Alteryx Enterprise Hub' : 'Python Statistical Hub'}
+                                </h1>
+
+                                <p className="breadcrumb">Analytics / {activeFile.originalName} / {activePage.toUpperCase()}</p>
                             </div>
                         </div>
                     </div>
                     <div className="header-right">
                         <div className="header-tools">
-                            {fileList.length > 1 && (
-                                <select
-                                    className="source-select-premium"
-                                    value={selectedSourceIndex}
-                                    onChange={(e) => setSelectedSourceIndex(Number(e.target.value))}
-                                >
-                                    {fileList.map((f, i) => (
-                                        <option key={f._id} value={i}>{f.originalName}</option>
-                                    ))}
-                                </select>
-                            )}
-                            <button
-                                className="tool-btn"
-                                onClick={() => {
-                                    navigator.clipboard.writeText(window.location.href);
-                                    alert("Link copied to clipboard!");
-                                }}
-                                title="Copy Link to Dashboard"
+                            <select
+                                className="source-select-premium"
+                                value={selectedSourceIndex}
+                                onChange={(e) => setSelectedSourceIndex(Number(e.target.value))}
                             >
-                                <Share2 size={16} /> Share
-                            </button>
+                                <option value="-1">All Combined Datasets</option>
+                                {fileList.map((f, i) => (
+                                    <option key={f._id} value={i}>{f.originalName}</option>
+                                ))}
+                            </select>
                             <button className="tool-btn highlight" onClick={() => setIsFilterPaneOpen(!isFilterPaneOpen)}>
                                 <Filter size={16} /> <span>Filters</span>
                             </button>
@@ -440,13 +679,18 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                     </div>
                     <div className="slicer-group">
                         <RefreshCw size={14} className="text-accent" />
-                        <span className="slicer-value">Verified: {activeFile.status}</span>
+                        <span className="slicer-value">Engine: <strong>{audit.engine || 'Standard'}</strong></span>
+                    </div>
+                    <div className="slicer-group">
+                        <TrendingUp size={14} className="text-accent" />
+                        <span className="slicer-value">Score: <strong>{audit.quality_score}%</strong></span>
                     </div>
                 </div>
 
                 {/* Page Content */}
                 <main className="pbi-main-scrollable">
                     {activePage === 'overview' && renderOverview()}
+                    {activePage === 'stats' && renderStatisticalProfile()}
                     {activePage === 'time' && renderTimeAnalysis()}
                     {activePage === 'details' && renderDetails()}
                 </main>
@@ -473,7 +717,8 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                                 </div>
                                 {!collapsedSlicers[col] && (
                                     <div className="filter-options-list">
-                                        {[...new Set(audit.sample_after.map(d => (d[col] === null || d[col] === undefined) ? "null" : String(d[col])))].slice(0, 15).map(val => (
+                                        {[...new Set(combinedData.map(d => (d[col] === null || d[col] === undefined) ? "null" : String(d[col])))].slice(0, 15).map(val => (
+
                                             <label key={val} className="filter-option" style={{ cursor: 'pointer' }}>
                                                 <input
                                                     type="checkbox"

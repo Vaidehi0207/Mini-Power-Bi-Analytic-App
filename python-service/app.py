@@ -129,8 +129,10 @@ def process_file():
         df.drop_duplicates(inplace=True)
         rows_after_duplicates = len(df)
 
-        # 7. Data Profiling
+        # 7. Data Profiling & Advanced Stats
         column_profile = {}
+        numeric_df = df.select_dtypes(include=[np.number])
+        
         for col in df.columns:
             nulls = int(df[col].isnull().sum())
             unique = int(df[col].nunique())
@@ -149,10 +151,54 @@ def process_file():
                 profile["max"] = float(df[col].max()) if not df[col].empty else 0
                 profile["mean"] = float(df[col].mean()) if not df[col].empty else 0
                 profile["sum"] = float(df[col].sum()) if not df[col].empty else 0
+                profile["std"] = float(df[col].std()) if not df[col].empty else 0
+                
+                # Advanced mathematical things - handle NaNs
+                skew = df[col].skew()
+                kurt = df[col].kurtosis()
+                profile["skewness"] = float(skew) if pd.notnull(skew) else 0
+                profile["kurtosis"] = float(kurt) if pd.notnull(kurt) else 0
+
             
             column_profile[col] = profile
 
-        # 8. Data Quality Score
+        # 8. Correlation Matrix (Mathematical insight)
+        correlation_matrix = {}
+        if not numeric_df.empty and len(numeric_df.columns) > 1:
+            try:
+                corr = numeric_df.corr().replace([np.inf, -np.inf, np.nan], 0)
+                correlation_matrix = corr.to_dict()
+            except:
+                correlation_matrix = {}
+
+        # 9. Dynamic Insight Generator
+        mathematical_insights = []
+        
+        # Trend Insight
+        if not datetime_cols.empty and not numeric_df.empty:
+            for n_col in numeric_df.columns:
+                try:
+                    df_sorted = df.sort_values(datetime_cols[0])
+                    first_val = df_sorted[n_col].iloc[0]
+                    last_val = df_sorted[n_col].iloc[-1]
+                    growth = ((last_val - first_val) / first_val * 100) if first_val != 0 else 0
+                    direction = "increased" if growth > 0 else "decreased"
+                    mathematical_insights.append(f"Trend: {n_col} has {direction} by {abs(growth):.1f}% over the period.")
+                except:
+                    pass
+
+        # Pareto/Concentration Insight
+        cat_cols = df.select_dtypes(include=['object']).columns
+        if not cat_cols.empty and not numeric_df.empty:
+            p_cat = cat_cols[0]
+            p_num = numeric_df.columns[0]
+            grouped = df.groupby(p_cat)[p_num].sum().sort_values(ascending=False)
+            if not grouped.empty:
+                top_name = grouped.index[0]
+                top_pct = (grouped.iloc[0] / grouped.sum()) * 100
+                mathematical_insights.append(f"Pareto Analysis: Top {p_cat} '{top_name}' contributes {top_pct:.1f}% to total {p_num}.")
+
+        # 10. Data Quality Score
         deduction = (null_cells_before / total_cells * 50) + (len(outlier_flags) * 5)
         quality_score = max(5, min(100, int(98 - deduction)))
 
@@ -176,7 +222,10 @@ def process_file():
                 "quality_score": quality_score,
                 "outliers_found": outlier_flags,
                 "features_added": [c for c in final_cols if c not in [clean_column_name(x) for x in initial_cols]],
-                "column_profile": column_profile
+                "column_profile": column_profile,
+                "correlation_matrix": correlation_matrix,
+                "mathematical_insights": mathematical_insights,
+                "engine": "Python Stats Engine"
             }
         }
 
