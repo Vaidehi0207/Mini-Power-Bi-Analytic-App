@@ -6,7 +6,8 @@ import {
 import {
     Layout, Filter, ChevronDown, Download, Maximize2, X, MoreHorizontal, FileText,
     Share2, Info, Map as MapIcon, GitBranch, Target, Layers, Home, BarChart3,
-    Clock, Database, RefreshCw, Search, Calendar, MapPin, DollarSign, TrendingUp, Users, ChevronRight, BrainCircuit, PieChart as PieChartIcon
+    Clock, Database, RefreshCw, Search, Calendar, MapPin, DollarSign, TrendingUp, Users, ChevronRight, BrainCircuit, PieChart as PieChartIcon,
+    HelpCircle, Activity
 } from 'lucide-react';
 
 const PB_COLORS = ['#252423', '#F2C811', '#BDC3C7', '#414042', '#3498db', '#e67e22', '#2ecc71', '#9b59b6'];
@@ -85,16 +86,14 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
         .filter(([_, info]) => info.type.includes('float') || info.type.includes('int') || info.type.includes('number'))
         .map(([name]) => name);
 
-    // Smart Category: All categorical candidates for the slicer pane
+    // Smart Category: Prioritize meaningful labels over IDs or technical timestamps
     const catCols = useMemo(() => {
         return Object.entries(profile)
-            .filter(([_, info]) =>
-                info.type === 'object' ||
-                info.type === 'string' ||
-                info.type.includes('string') ||
-                info.type === 'category' ||
-                info.type === 'bool'
-            )
+            .filter(([name, info]) => {
+                const lowerName = name.toLowerCase();
+                const isTechnical = lowerName.match(/(id|_id|uuid|guid|code|timestamp|created_at|updated_at)/);
+                return (info.type === 'object' || info.type === 'string' || info.type.includes('string') || info.type === 'category') && !isTechnical;
+            })
             .sort((a, b) => a[1].unique_count - b[1].unique_count)
             .map(([name]) => name);
     }, [profile]);
@@ -242,9 +241,13 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                                     </div>
                                 </div>
                             )) : (
-                                <div className="empty-state-mini">
-                                    <Info size={24} className="fade" />
-                                    <p>Insufficient variance for automated insights.</p>
+                                <div className="empty-state-mini guidance">
+                                    <HelpCircle size={24} className="text-accent" />
+                                    <p><b>Insufficient variance for automated insights.</b></p>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                        To generate insights, the engine requires numeric columns with varying values.
+                                        Categorical datasets show limited math trends.
+                                    </span>
                                 </div>
                             )}
 
@@ -293,8 +296,12 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                                 </div>
                             </div>
                         ) : (
-                            <div className="empty-state-mini">
-                                <p>Numerical correlation requires 2+ columns.</p>
+                            <div className="empty-state-mini guidance">
+                                <Activity size={24} className="text-accent" />
+                                <p>Relationship analysis requires 2+ numerical columns.</p>
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                    Current dataset only detected: <b>{numericCols.join(', ') || '0 numeric columns'}</b>.
+                                </span>
                             </div>
                         )}
                     </div>
@@ -332,13 +339,31 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
     }, [numericCols]);
 
     const displayCat = useMemo(() => {
-        // Try to find a categorical col that has some variety but not too much (like a status or category)
+        // Find a column with low cardinality (2-10) for main trend
         const candidates = catCols.filter(c => {
             const unique = profile[c]?.unique_count || 0;
             return unique > 1 && unique < 15;
         });
         return candidates[0] || catCols[0] || 'Unknown';
     }, [catCols, profile]);
+
+    const donutCat = useMemo(() => {
+        // Find a different column for donut (preferably binary or very small set)
+        const candidates = catCols.filter(c => {
+            const unique = profile[c]?.unique_count || 0;
+            return unique >= 2 && unique < 8 && c !== displayCat;
+        });
+        return candidates[0] || catCols[1] || catCols[0] || 'Data';
+    }, [catCols, profile, displayCat]);
+
+    const rankingCat = useMemo(() => {
+        // Find a higher cardinality column for the ranking list (leaderboard)
+        const candidates = catCols.filter(c => {
+            const unique = profile[c]?.unique_count || 0;
+            return unique > 5 && c !== displayCat && c !== donutCat;
+        });
+        return candidates[0] || catCols[2] || catCols[0] || 'Segments';
+    }, [catCols, profile, displayCat, donutCat]);
 
     const renderOverview = () => {
         const totalRows = filteredData.length;
@@ -370,7 +395,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                     <div className="pbi-kpi-card-modern" title={isCountMetric ? `Unique ${primaryCat} values` : `Sum of ${activeMetric}`}>
                         <div className="kpi-icon-box blue">{isCountMetric ? <Layers size={20} /> : <DollarSign size={20} />}</div>
                         <div className="kpi-details">
-                            <span className="kpi-label">{isCountMetric ? `Unique ${primaryCat}` : `Total ${activeMetric}`}</span>
+                            <span className="kpi-label">{isCountMetric ? `UNIQUE ${primaryCat.replace(/_/g, ' ').toUpperCase()}` : `TOTAL ${activeMetric.replace(/_/g, ' ').toUpperCase()}`}</span>
                             <span className="kpi-value" style={{ fontSize: displaySum > 1000000 ? '20px' : '24px' }}>
                                 {isCountMetric
                                     ? (isFiltered ? uniqueCats : (profile[primaryCat]?.unique_count || uniqueCats)).toLocaleString()
@@ -383,7 +408,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                     <div className="pbi-kpi-card-modern" title={isCountMetric ? `Top ${primaryCat}` : `Average ${activeMetric}`}>
                         <div className="kpi-icon-box blue">{isCountMetric ? <Target size={20} /> : <TrendingUp size={20} />}</div>
                         <div className="kpi-details">
-                            <span className="kpi-label">{isCountMetric ? `Top ${primaryCat}` : `Avg ${activeMetric}`}</span>
+                            <span className="kpi-label">{isCountMetric ? `TOP ${primaryCat.replace(/_/g, ' ').toUpperCase()}` : `AVG ${activeMetric.replace(/_/g, ' ').toUpperCase()}`}</span>
                             <span className="kpi-value" style={isCountMetric ? { fontSize: '18px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' } : {}}>
                                 {isCountMetric
                                     ? (topCat ? topCat[0] : 'N/A')
@@ -406,8 +431,8 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                     <div className="pbi-chart-card-modern span-2">
                         <div className="chart-header">
                             <div className="chart-title-group">
-                                <h3>{isCountMetric ? 'Record Count' : activeMetric.replace(/_/g, ' ')} by {displayCat.replace(/_/g, ' ')}</h3>
-                                <p className="chart-subtitle">{activeFile.originalName}</p>
+                                <h3>📊 Trend Analysis: {isCountMetric ? 'Record Frequency' : activeMetric.replace(/_/g, ' ')} by {catCols[0] || 'Category'}</h3>
+                                <p className="chart-subtitle">Analyzing how {isCountMetric ? 'records' : activeMetric} are distributed across top segments</p>
                             </div>
                             <MoreHorizontal size={16} className="text-muted" />
                         </div>
@@ -425,35 +450,70 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                                     <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
                                     <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)' }} />
-                                    <Tooltip contentStyle={{ background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--text-main)' }} />
-                                    <Bar dataKey="value" name={isCountMetric ? 'Count' : activeMetric} fill="var(--accent)" radius={[4, 4, 0, 0]} barSize={40} />
-                                    <Line type="monotone" dataKey="value" stroke="var(--text-main)" strokeWidth={3} dot={{ r: 4, fill: 'var(--text-main)' }} />
+                                    <Tooltip contentStyle={{ background: '#1e293b', borderRadius: '8px', border: 'none', color: '#f8fafc', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }} itemStyle={{ color: '#f8fafc' }} />
+                                    <Bar dataKey="value" name={isCountMetric ? 'Count' : activeMetric} fill="#6366f1" radius={[4, 4, 0, 0]} barSize={40} />
+                                    <Line type="monotone" dataKey="value" stroke="#252423" strokeWidth={3} dot={{ r: 4, fill: '#252423' }} />
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
 
+                    {/* Composition Breakdown - Donut Chart */}
                     <div className="pbi-chart-card-modern">
                         <div className="chart-header">
-                            <h3>Distribution</h3>
+                            <div className="chart-title-group">
+                                <h3>🍩 Composition: {donutCat.replace(/_/g, ' ')}</h3>
+                                <p className="chart-subtitle">Distribution of {donutCat} categories</p>
+                            </div>
                             <PieChartIcon size={16} className="text-muted" />
                         </div>
-                        <ResponsiveContainer width="100%" height={280}>
-                            <PieChart>
-                                <Pie
-                                    data={catCols[1] || catCols[0] ? Object.entries(filteredData.reduce((acc, row) => {
-                                        const key = row[catCols[1] || catCols[0]] || 'Unknown';
-                                        acc[key] = (acc[key] || 0) + 1; // Count distribution always works best for pie
+                        <div className="chart-body-container">
+                            <ResponsiveContainer width="100%" height={260}>
+                                <PieChart>
+                                    <Pie
+                                        data={Object.entries(filteredData.reduce((acc, row) => {
+                                            const key = String(row[donutCat] || 'Other');
+                                            acc[key] = (acc[key] || 0) + 1;
+                                            return acc;
+                                        }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 6)}
+                                        cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={5} dataKey="value" stroke="none"
+                                    >
+                                        {PB_COLORS.map((c, i) => <Cell key={i} fill={c} stroke="none" />)}
+                                    </Pie>
+                                    <Tooltip contentStyle={{ background: '#1e293b', borderRadius: '8px', border: 'none', color: '#f8fafc', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }} itemStyle={{ color: '#f8fafc' }} />
+                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} formatter={(value) => <span style={{ color: '#252423', fontWeight: 500 }}>{value}</span>} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Performance Leaderboard - Horizontal Ranking */}
+                    <div className="pbi-chart-card-modern">
+                        <div className="chart-header">
+                            <div className="chart-title-group">
+                                <h3>🏆 Top Rankings: {rankingCat.replace(/_/g, ' ')}</h3>
+                                <p className="chart-subtitle">{isCountMetric ? 'Top contributors by record volume' : `Highest weighted ${rankingCat} by ${activeMetric}`}</p>
+                            </div>
+                            <Maximize2 size={16} className="text-muted" />
+                        </div>
+                        <div className="chart-body-container">
+                            <ResponsiveContainer width="100%" height={280}>
+                                <BarChart layout="vertical" margin={{ left: 10, right: 30, top: 10, bottom: 10 }} data={
+                                    Object.entries(filteredData.reduce((acc, row) => {
+                                        const key = String(row[rankingCat] || 'Other');
+                                        const val = isCountMetric ? 1 : parseSafeNumber(row[activeMetric]);
+                                        acc[key] = (acc[key] || 0) + val;
                                         return acc;
-                                    }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value) : [{ name: 'Data', value: 100 }]}
-                                    cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value"
-                                >
-                                    {PB_COLORS.map((c, i) => <Cell key={i} fill={c} />)}
-                                </Pie>
-                                <Tooltip />
-                                <Legend layout="horizontal" verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
-                            </PieChart>
-                        </ResponsiveContainer>
+                                    }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 6)
+                                }>
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e1e1e1" opacity={0.5} />
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="name" type="category" fontSize={11} axisLine={false} tickLine={false} width={100} tick={{ fill: '#252423' }} />
+                                    <Tooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ background: '#1e293b', borderRadius: '8px', border: 'none', color: '#f8fafc' }} itemStyle={{ color: '#f8fafc' }} />
+                                    <Bar dataKey="value" name={isCountMetric ? 'Records' : activeMetric} fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
 
                     {/* Alteryx Specific Insight Card (Visible ONLY for Alteryx) */}
