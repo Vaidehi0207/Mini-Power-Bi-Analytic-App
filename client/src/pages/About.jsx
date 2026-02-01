@@ -36,7 +36,9 @@ const About = () => {
             </nav>
 
             <main className="about-content">
-                <section className="about-hero text-center section-padding">
+                <section className="about-hero text-center section-padding"
+                style={{ paddingBottom: "30px" }}
+>
                     <div className="hero-badge mx-auto">
                         <Rocket size={14} /> <span>The Future of Analytics</span>
                     </div>
@@ -47,7 +49,9 @@ const About = () => {
                     </p>
                 </section>
 
-                <section className="about-mission section-padding">
+                <section className="about-mission section-padding"
+                  style={{ paddingTop: "30px" }}
+>
                     <div className="container">
                         <div className="mission-box mx-auto text-center" style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
                             <h2 className="mb-6">Our Mission</h2>
@@ -89,8 +93,8 @@ const About = () => {
                         </div>
 
                         <div className="cta-wrapper text-center mt-12" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <h3>MiniBI ensures your data becomes clean, structured, and analytics-ready.</h3>
-                            <button className="cta-btn primary mt-6" onClick={() => navigate('/signup')} style={{ cursor: 'pointer' }}>
+                            <h3 style={{ marginBottom: "18px" }}>MiniBI ensures your data becomes clean, structured, and analytics-ready.</h3>
+                            <button className="cta-btn primary mt-6" onClick={() => navigate('/signup')} style={{ cursor: 'pointer', marginTop: "10px"}}>
                                 Start Your Journey <ChevronRight size={18} />
                             </button>
                         </div>
