@@ -170,10 +170,10 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
     const bestNumericCol = useMemo(() => {
         // Filter out ID columns from being the primary metric
         const candidates = numericCols.filter(n => !n.toLowerCase().match(/(_id|id|code|index|^no$|^nr$|phone|mobile|serial|pin|zip|count|year|month)/));
-        const data = audit.sample_after || [];
+        const data = combinedData.length > 0 ? combinedData : (audit.sample_after || []);
 
-        // Prioritize columns with 'amount', 'price', 'revenue', 'cost', 'val', 'total'
-        const priorityCandidates = candidates.filter(n => n.toLowerCase().match(/(amount|price|revenue|cost|val|total|profit|fee|tax)/));
+        // Prioritize columns with 'amount', 'price', 'revenue', 'cost', 'val', 'total', 'profit', 'sales'
+        const priorityCandidates = candidates.filter(n => n.toLowerCase().match(/(amount|price|revenue|cost|val|total|profit|sales|fee|tax)/));
         const searchList = priorityCandidates.length > 0 ? priorityCandidates : candidates;
 
         for (const col of searchList) {
@@ -181,7 +181,7 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
             if (sum > 0) return col;
         }
         return candidates[0] || null;
-    }, [numericCols, audit.sample_after]);
+    }, [numericCols, combinedData, audit.sample_after]);
 
     const activeMetric = bestNumericCol || 'record_count';
     const isCountMetric = activeMetric === 'record_count';

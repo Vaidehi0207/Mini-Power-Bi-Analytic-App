@@ -88,20 +88,30 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
         // Detect Python Service URL (default to local Flask if not set)
         const pythonServiceUrl = process.env.PYTHON_API_URL || 'http://localhost:10000';
 
-        // Standard Python Processing via Microservice
+        // Standard Python Processing via Microservice with Retry for Render cold starts
         console.log(`📡 Sending file to Python Service: ${pythonServiceUrl}/process`);
 
-        const form = new FormData();
-        form.append('file', fs.createReadStream(inputPath), { filename: req.file.originalname });
+        const sendToPython = async (retries = 3, delay = 3000) => {
+            for (let attempt = 1; attempt <= retries; attempt++) {
+                try {
+                    const form = new FormData();
+                    form.append('file', fs.createReadStream(inputPath), { filename: req.file.originalname });
+
+                    const pythonRes = await axios.post(`${pythonServiceUrl}/process`, form, {
+                        headers: { ...form.getHeaders() },
+                        timeout: 45000 // 45s timeout to allow Render free tier wake-up
+                    });
+                    return pythonRes.data;
+                } catch (err) {
+                    console.warn(`⚠️ Python Service attempt ${attempt}/${retries} failed: ${err.message}`);
+                    if (attempt === retries) throw err;
+                    await new Promise(res => setTimeout(res, delay));
+                }
+            }
+        };
 
         try {
-            const pythonRes = await axios.post(`${pythonServiceUrl}/process`, form, {
-                headers: {
-                    ...form.getHeaders()
-                }
-            });
-
-            const result = pythonRes.data;
+            const result = await sendToPython();
 
             if (result.status === 'completed') {
                 // Save the processed CSV data returned by the service
