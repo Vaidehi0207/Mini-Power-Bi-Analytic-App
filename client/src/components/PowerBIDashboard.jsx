@@ -82,39 +82,58 @@ const PowerBIDashboard = ({ files = [], onClose }) => {
     };
 
     // 1. DYNAMIC VISUALIZATION ENGINE
-    const numericCols = Object.entries(profile)
-        .filter(([_, info]) => info.type.includes('float') || info.type.includes('int') || info.type.includes('number'))
-        .map(([name]) => name);
+    const allKeys = useMemo(() => {
+        const keysFromData = combinedData.length > 0 ? Object.keys(combinedData[0]) : [];
+        const keysFromProfile = Object.keys(profile || {});
+        return [...new Set([...keysFromProfile, ...keysFromData])];
+    }, [combinedData, profile]);
 
-    // Smart Category: Prioritize meaningful labels over IDs or technical timestamps
+    const isNumericKey = (key) => {
+        const info = profile[key];
+        if (info && info.type) {
+            const t = String(info.type).toLowerCase();
+            if (t.includes('float') || t.includes('int') || t.includes('number')) return true;
+        }
+        if (combinedData.length > 0) {
+            const sampleVal = combinedData.find(r => r[key] !== null && r[key] !== undefined)?.[key];
+            if (typeof sampleVal === 'number') return true;
+            if (typeof sampleVal === 'string' && sampleVal.trim() !== '' && !isNaN(Number(sampleVal))) return true;
+        }
+        return false;
+    };
+
+    const numericCols = useMemo(() => {
+        return allKeys.filter(k => isNumericKey(k));
+    }, [allKeys, profile, combinedData]);
+
     const catCols = useMemo(() => {
-        return Object.entries(profile)
-            .filter(([name, info]) => {
-                const lowerName = name.toLowerCase();
-                const isTechnical = lowerName.match(/(id|_id|uuid|guid|code|timestamp|created_at|updated_at)/);
-                return (info.type === 'object' || info.type === 'string' || info.type.includes('string') || info.type === 'category') && !isTechnical;
-            })
-            .sort((a, b) => a[1].unique_count - b[1].unique_count)
-            .map(([name]) => name);
-    }, [profile]);
+        return allKeys.filter(k => {
+            const lowerName = k.toLowerCase();
+            const isTechnical = lowerName.match(/(id|_id|uuid|guid|timestamp|created_at|updated_at)/);
+            if (isTechnical) return false;
+            return !isNumericKey(k);
+        }).sort((a, b) => {
+            const uA = profile[a]?.unique_count || new Set(combinedData.map(r => r[a])).size;
+            const uB = profile[b]?.unique_count || new Set(combinedData.map(r => r[b])).size;
+            return uA - uB;
+        });
+    }, [allKeys, profile, combinedData]);
 
-    // Smart Dates: specific names OR datetime type detection
     const dateCols = useMemo(() => {
-        return Object.entries(profile)
-            .filter(([name, info]) => {
-                const lowerName = name.toLowerCase();
-                // Avoid false positives like "status", "category", "location", "rating"
-                const isExcluded = lowerName.match(/(status|category|location|rating|priority|state|attribute|type)/);
-                return !isExcluded && (
-                    lowerName.match(/^(date|time|year|month|day|period|at_|created|updated|sold|purchased|dt)/) ||
-                    lowerName.endsWith('_at') ||
-                    lowerName.endsWith('date') ||
-                    info.type.includes('datetime') ||
-                    info.type.includes('timestamp')
-                );
-            })
-            .map(([name]) => name);
-    }, [profile]);
+        return allKeys.filter(k => {
+            const lowerName = k.toLowerCase();
+            const isExcluded = lowerName.match(/(status|category|location|rating|priority|state|attribute|type)/);
+            const info = profile[k];
+            const typeStr = info?.type ? String(info.type).toLowerCase() : '';
+            return !isExcluded && (
+                lowerName.match(/^(date|time|year|month|day|period|at_|created|updated|sold|purchased|dt)/) ||
+                lowerName.endsWith('_at') ||
+                lowerName.endsWith('date') ||
+                typeStr.includes('datetime') ||
+                typeStr.includes('timestamp')
+            );
+        });
+    }, [allKeys, profile]);
 
     const parseSafeDate = (val) => {
         if (!val) return null;
