@@ -26,13 +26,19 @@ const Signup = () => {
             return;
         }
 
+        setIsSubmitting(true);
         try {
             await signup(username, email, password, fullName);
             navigate('/'); // Redirect to home immediately after signup
         } catch (err) {
-            const backendError = err.response?.data?.message;
-            const detailedError = err.response?.data?.error;
-            setError(detailedError ? `${backendError}: ${detailedError}` : (backendError || 'Failed to create account.'));
+            if (!err.response) {
+                setError('Unable to connect to authentication server. Please check your network connection.');
+            } else {
+                const backendError = err.response?.data?.message;
+                const detailedError = err.response?.data?.error;
+                setError(detailedError ? `${backendError}: ${detailedError}` : (backendError || 'Failed to create account.'));
+            }
+        } finally {
             setIsSubmitting(false);
         }
     };

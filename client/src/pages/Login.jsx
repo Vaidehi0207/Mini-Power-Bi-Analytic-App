@@ -20,7 +20,11 @@ const Login = () => {
             await login(email, password);
             navigate('/');
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to login. Please check your credentials.');
+            if (!err.response) {
+                setError('Unable to connect to server. Please check your network connection.');
+            } else {
+                setError(err.response?.data?.message || 'Failed to login. Please check your credentials.');
+            }
         } finally {
             setIsSubmitting(false);
         }

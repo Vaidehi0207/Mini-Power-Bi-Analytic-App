@@ -9,22 +9,50 @@ import uuid
 import sys
 from datetime import datetime
 
+# Reconfigure stdout/stderr for Windows console compatibility
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 app = Flask(__name__)
 CORS(app) # Enable CORS for all routes
 
-UPLOAD_DIR = "/tmp/uploads"
+UPLOAD_DIR = "/tmp/uploads" if os.name != 'nt' else os.path.join(os.getcwd(), 'tmp_uploads')
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def clean_column_name(col):
     col = str(col).strip()
     col = re.sub(r'[^a-zA-Z0-9]', '_', col)
-    return col.lower().strip('_')
+    col = col.lower().strip('_')
+    return col if col else 'column'
+
+def safe_float(val, default=0.0):
+    try:
+        if pd.isna(val) or np.isinf(val):
+            return default
+        return float(val)
+    except Exception:
+        return default
 
 def get_sample(df):
     try:
-        # Convert to JSON and back to getting serializable dicts (handles dates etc)
-        return json.loads(df.head(2000).to_json(orient='records', date_format='iso'))
-    except:
+        # Convert to JSON and back to getting serializable dicts (handles dates/types cleanly)
+        json_str = df.head(2000).to_json(orient='records', date_format='iso')
+        data = json.loads(json_str)
+        # Clean any remaining NaN/Inf values
+        clean_data = []
+        for row in data:
+            clean_row = {}
+            for k, v in row.items():
+                if isinstance(v, float) and (np.isnan(v) or np.isinf(v)):
+                    clean_row[k] = None
+                else:
+                    clean_row[k] = v
+            clean_data.append(clean_row)
+        return clean_data
+    except Exception as e:
+        print(f"Sample generation warning: {e}")
         return []
 
 @app.route("/process", methods=["POST"])
@@ -38,6 +66,7 @@ def process_file():
     if not file_ext:
         file_ext = '.csv' # Default fallback
     
+    input_path = ""
     try:
         # Save file temporarily
         temp_filename = f"{uuid.uuid4()}{file_ext}"
@@ -45,21 +74,37 @@ def process_file():
         file.save(input_path)
         print(f"📥 Received file: {original_filename} -> Saved to {input_path}")
         sys.stdout.flush()
-        # 1. Load Data
+
+        # 1. Load Data with robust fallbacks
+        df = None
         if file_ext == '.csv':
-            df = pd.read_csv(input_path)
+            try:
+                df = pd.read_csv(input_path)
+            except Exception:
+                df = pd.read_csv(input_path, encoding='latin1', encoding_errors='replace')
         elif file_ext in ['.xlsx', '.xls']:
-            engine = 'openpyxl' if file_ext == '.xlsx' else 'xlrd'
-            df = pd.read_excel(input_path, engine=engine)
-        else:
-            return jsonify({"status": "failed", "error": f"Unsupported file type: {file_ext}"}), 400
+            try:
+                df = pd.read_excel(input_path)
+            except Exception:
+                try:
+                    engine = 'openpyxl' if file_ext == '.xlsx' else 'xlrd'
+                    df = pd.read_excel(input_path, engine=engine)
+                except Exception:
+                    # Fallback: file might actually be CSV despite .xlsx extension
+                    try:
+                        df = pd.read_csv(input_path, encoding_errors='replace')
+                    except Exception as parse_err:
+                        return jsonify({"status": "failed", "error": f"Failed to parse Excel file: {str(parse_err)}"}), 400
+
+        if df is None or df.empty:
+            return jsonify({"status": "failed", "error": "The uploaded dataset is empty or unreadable."}), 400
 
         # Audit: Initial State
         rows_before = len(df)
         initial_cols = list(df.columns)
         sample_before = get_sample(df)
         total_cells = df.size if not df.empty else 1
-        null_cells_before = df.isnull().sum().sum()
+        null_cells_before = int(df.isnull().sum().sum())
 
         # 2. Advanced Cleaning & Standardization
         clean_cols = [clean_column_name(col) for col in df.columns]
@@ -79,54 +124,67 @@ def process_file():
 
         # Fix Data Types (Currency, Dates)
         for col in df.columns:
-            # Detect currency strings
-            if df[col].dtype == 'object':
-                sample_vals = df[col].dropna().head(10).astype(str)
-                if sample_vals.str.contains(r'[₹\$,]').any():
-                    clean_col = df[col].astype(str).str.replace(r'[₹\$,]', '', regex=True)
-                    numeric_col = pd.to_numeric(clean_col, errors='coerce')
-                    if numeric_col.notnull().sum() > len(df) * 0.3:
-                        df[col] = numeric_col
+            try:
+                # Detect currency strings
+                if df[col].dtype == 'object':
+                    sample_vals = df[col].dropna().head(10).astype(str)
+                    if sample_vals.str.contains(r'[₹\$,]').any():
+                        clean_col = df[col].astype(str).str.replace(r'[₹\$,]', '', regex=True)
+                        numeric_col = pd.to_numeric(clean_col, errors='coerce')
+                        if numeric_col.notnull().sum() > len(df) * 0.3:
+                            df[col] = numeric_col
 
-            # Detect and fix dates
-            if 'date' in col.lower() or 'time' in col.lower():
-                df[col] = pd.to_datetime(df[col], errors='coerce')
+                # Detect and fix dates
+                if 'date' in col.lower() or 'time' in col.lower():
+                    df[col] = pd.to_datetime(df[col], errors='coerce')
+            except Exception as col_err:
+                print(f"Column type conversion warning for {col}: {col_err}")
 
-        # 3. Missing Value Handling
+        # 3. Missing Value Handling (Pandas 2.0+ compatible without inplace chaining errors)
         for col in df.columns:
-            if df[col].isnull().any():
-                if pd.api.types.is_numeric_dtype(df[col]):
-                    df[col].fillna(df[col].median(), inplace=True)
-                else:
-                    df[col].fillna("Unknown", inplace=True)
+            try:
+                if df[col].isnull().any():
+                    if pd.api.types.is_numeric_dtype(df[col]):
+                        med = df[col].median()
+                        df[col] = df[col].fillna(med if pd.notnull(med) else 0)
+                    else:
+                        df[col] = df[col].fillna("Unknown")
+            except Exception as fill_err:
+                print(f"Fillna warning for {col}: {fill_err}")
 
         # 4. Outlier Detection (IQR Method)
         outlier_flags = {}
         for col in df.select_dtypes(include=[np.number]).columns:
-            if df[col].nunique() > 5:
-                Q1 = df[col].quantile(0.25)
-                Q3 = df[col].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - 1.5 * IQR
-                upper_bound = Q3 + 1.5 * IQR
-                outliers_count = ((df[col] < lower_bound) | (df[col] > upper_bound)).sum()
-                if outliers_count > 0:
-                    outlier_flags[col] = int(outliers_count)
+            try:
+                if df[col].nunique() > 5:
+                    Q1 = df[col].quantile(0.25)
+                    Q3 = df[col].quantile(0.75)
+                    IQR = Q3 - Q1
+                    lower_bound = Q1 - 1.5 * IQR
+                    upper_bound = Q3 + 1.5 * IQR
+                    outliers_count = int(((df[col] < lower_bound) | (df[col] > upper_bound)).sum())
+                    if outliers_count > 0:
+                        outlier_flags[col] = outliers_count
+            except Exception as out_err:
+                print(f"Outlier detection warning for {col}: {out_err}")
 
         # 5. Feature Engineering
-        datetime_cols = df.select_dtypes(include=['datetime64']).columns
-        for col in datetime_cols:
-            df[f'{col}_year'] = df[col].dt.year
-            df[f'{col}_month'] = df[col].dt.month_name()
+        try:
+            datetime_cols = df.select_dtypes(include=['datetime64']).columns
+            for col in datetime_cols:
+                df[f'{col}_year'] = df[col].dt.year
+                df[f'{col}_month'] = df[col].dt.month_name()
 
-        if 'revenue' in df.columns and 'cost' in df.columns:
-            df['profit'] = df['revenue'] - df['cost']
-            df['profit_margin'] = (df['profit'] / df['revenue']).replace([np.inf, -np.inf], 0).fillna(0)
+            if 'revenue' in df.columns and 'cost' in df.columns:
+                df['profit'] = df['revenue'] - df['cost']
+                df['profit_margin'] = (df['profit'] / df['revenue']).replace([np.inf, -np.inf], 0).fillna(0)
+        except Exception as feat_err:
+            print(f"Feature engineering warning: {feat_err}")
 
         # 6. Basic Operations
-        df.dropna(how='all', inplace=True)
+        df = df.dropna(how='all')
         rows_after_dropna = len(df)
-        df.drop_duplicates(inplace=True)
+        df = df.drop_duplicates()
         rows_after_duplicates = len(df)
 
         # 7. Data Profiling & Advanced Stats
@@ -134,48 +192,54 @@ def process_file():
         numeric_df = df.select_dtypes(include=[np.number])
         
         for col in df.columns:
-            nulls = int(df[col].isnull().sum())
-            unique = int(df[col].nunique())
-            col_type = str(df[col].dtype)
-            
-            profile = {
-                "type": col_type,
-                "null_count": nulls,
-                "null_pct": round((nulls / len(df)) * 100, 1) if len(df) > 0 else 0,
-                "unique_count": unique,
-                "health": "healthy" if nulls == 0 else "warning" if nulls < len(df) * 0.2 else "critical"
-            }
-            
-            if pd.api.types.is_numeric_dtype(df[col]):
-                profile["min"] = float(df[col].min()) if not df[col].empty else 0
-                profile["max"] = float(df[col].max()) if not df[col].empty else 0
-                profile["mean"] = float(df[col].mean()) if not df[col].empty else 0
-                profile["sum"] = float(df[col].sum()) if not df[col].empty else 0
-                profile["std"] = float(df[col].std()) if not df[col].empty else 0
+            try:
+                nulls = int(df[col].isnull().sum())
+                unique = int(df[col].nunique())
+                col_type = str(df[col].dtype)
                 
-                # Advanced mathematical things - handle NaNs
-                skew = df[col].skew()
-                kurt = df[col].kurtosis()
-                profile["skewness"] = float(skew) if pd.notnull(skew) else 0
-                profile["kurtosis"] = float(kurt) if pd.notnull(kurt) else 0
-
-            
-            column_profile[col] = profile
+                profile = {
+                    "type": col_type,
+                    "null_count": nulls,
+                    "null_pct": round((nulls / len(df)) * 100, 1) if len(df) > 0 else 0,
+                    "unique_count": unique,
+                    "health": "healthy" if nulls == 0 else "warning" if nulls < len(df) * 0.2 else "critical"
+                }
+                
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    profile["min"] = safe_float(df[col].min())
+                    profile["max"] = safe_float(df[col].max())
+                    profile["mean"] = safe_float(df[col].mean())
+                    profile["sum"] = safe_float(df[col].sum())
+                    profile["std"] = safe_float(df[col].std())
+                    profile["skewness"] = safe_float(df[col].skew())
+                    profile["kurtosis"] = safe_float(df[col].kurtosis())
+                
+                column_profile[col] = profile
+            except Exception as prof_err:
+                print(f"Column profiling warning for {col}: {prof_err}")
+                column_profile[col] = {
+                    "type": str(df[col].dtype),
+                    "null_count": 0,
+                    "null_pct": 0,
+                    "unique_count": 0,
+                    "health": "healthy"
+                }
 
         # 8. Correlation Matrix (Mathematical insight)
         correlation_matrix = {}
         if not numeric_df.empty and len(numeric_df.columns) > 1:
             try:
                 corr = numeric_df.corr().replace([np.inf, -np.inf, np.nan], 0)
-                correlation_matrix = corr.to_dict()
-            except:
+                correlation_matrix = json.loads(corr.to_json())
+            except Exception as corr_err:
+                print(f"Correlation matrix warning: {corr_err}")
                 correlation_matrix = {}
 
         # 9. Dynamic Insight Generator
         mathematical_insights = []
         
         # Trend Insight
-        if not datetime_cols.empty and not numeric_df.empty:
+        if 'datetime_cols' in locals() and not datetime_cols.empty and not numeric_df.empty:
             for n_col in numeric_df.columns:
                 try:
                     df_sorted = df.sort_values(datetime_cols[0])
@@ -184,19 +248,22 @@ def process_file():
                     growth = ((last_val - first_val) / first_val * 100) if first_val != 0 else 0
                     direction = "increased" if growth > 0 else "decreased"
                     mathematical_insights.append(f"Trend: {n_col} has {direction} by {abs(growth):.1f}% over the period.")
-                except:
+                except Exception:
                     pass
 
         # Pareto/Concentration Insight
-        cat_cols = df.select_dtypes(include=['object']).columns
-        if not cat_cols.empty and not numeric_df.empty:
-            p_cat = cat_cols[0]
-            p_num = numeric_df.columns[0]
-            grouped = df.groupby(p_cat)[p_num].sum().sort_values(ascending=False)
-            if not grouped.empty:
-                top_name = grouped.index[0]
-                top_pct = (grouped.iloc[0] / grouped.sum()) * 100
-                mathematical_insights.append(f"Pareto Analysis: Top {p_cat} '{top_name}' contributes {top_pct:.1f}% to total {p_num}.")
+        try:
+            cat_cols = df.select_dtypes(include=['object']).columns
+            if not cat_cols.empty and not numeric_df.empty:
+                p_cat = cat_cols[0]
+                p_num = numeric_df.columns[0]
+                grouped = df.groupby(p_cat)[p_num].sum().sort_values(ascending=False)
+                if not grouped.empty and grouped.sum() != 0:
+                    top_name = grouped.index[0]
+                    top_pct = (grouped.iloc[0] / grouped.sum()) * 100
+                    mathematical_insights.append(f"Pareto Analysis: Top {p_cat} '{top_name}' contributes {top_pct:.1f}% to total {p_num}.")
+        except Exception as pareto_err:
+            print(f"Pareto insight warning: {pareto_err}")
 
         # 10. Data Quality Score
         deduction = (null_cells_before / total_cells * 50) + (len(outlier_flags) * 5)
@@ -213,8 +280,8 @@ def process_file():
             "audit": {
                 "rows_before": rows_before,
                 "rows_after": len(df),
-                "empty_rows_removed": rows_before - rows_after_dropna,
-                "duplicates_removed": rows_after_dropna - rows_after_duplicates,
+                "empty_rows_removed": max(0, rows_before - rows_after_dropna),
+                "duplicates_removed": max(0, rows_after_dropna - rows_after_duplicates),
                 "columns_processed": len(final_cols),
                 "renamed_columns": [c for c in df.columns if c not in [clean_column_name(x) for x in initial_cols]],
                 "sample_before": sample_before,
@@ -234,13 +301,16 @@ def process_file():
     except Exception as e:
         import traceback
         error_traceback = traceback.format_exc()
-        print(f"❌ PROCESSING ERROR: {str(e)}")
+        print(f"PROCESSING ERROR: {str(e)}")
         print(error_traceback)
         sys.stdout.flush()
         return jsonify({"status": "failed", "error": str(e), "traceback": error_traceback}), 500
     finally:
-        if os.path.exists(input_path):
-            os.remove(input_path)
+        if input_path and os.path.exists(input_path):
+            try:
+                os.remove(input_path)
+            except Exception:
+                pass
 
 @app.route("/", methods=["GET"])
 def health_check():

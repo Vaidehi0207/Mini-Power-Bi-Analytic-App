@@ -30,24 +30,31 @@ router.post('/signup', async (req, res) => {
     try {
         const { username, email, password, fullName } = req.body;
 
-        let userByEmail = await User.findOne({ email });
-        if (userByEmail) {
-            return res.status(400).json({ message: 'Email already registered' });
+        if (!email || !username || !password) {
+            return res.status(400).json({ message: 'All required fields must be provided.' });
         }
 
-        let userByUsername = await User.findOne({ username });
+        const normalizedEmail = email.toLowerCase().trim();
+        const normalizedUsername = username.trim();
+
+        let userByEmail = await User.findOne({ email: normalizedEmail });
+        if (userByEmail) {
+            return res.status(400).json({ message: 'An account with this email address is already registered. Please sign in instead.' });
+        }
+
+        let userByUsername = await User.findOne({ username: normalizedUsername });
         if (userByUsername) {
-            return res.status(400).json({ message: 'Username is already taken' });
+            return res.status(400).json({ message: 'This username is already taken. Please choose another username.' });
         }
 
         // Generate Verification Token
         const verificationToken = crypto.randomBytes(32).toString('hex');
 
         const user = new User({
-            username,
-            email,
+            username: normalizedUsername,
+            email: normalizedEmail,
             password,
-            fullName,
+            fullName: fullName ? fullName.trim() : undefined,
             isVerified: true, // Auto-verify for now
             verificationToken
         });
@@ -277,29 +284,26 @@ router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Please provide both email and password.' });
+        }
+
         // Check for user
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email: email.toLowerCase().trim() });
         if (!user) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            return res.status(404).json({ message: 'No account found with this email address.' });
         }
 
         // Check password
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            return res.status(400).json({ message: 'Incorrect password. Please check your password and try again.' });
         }
-
-        /* Temporarily bypass verification check for login
-        // Check verification status
-        if (!user.isVerified) {
-            return res.status(403).json({ message: 'Please verify your email address before logging in.' });
-        }
-        */
 
         // Create JWT
         const token = jwt.sign(
             { id: user._id, role: user.role },
-            process.env.JWT_SECRET,
+            process.env.JWT_SECRET || 'fallback_secret',
             { expiresIn: '3d' }
         );
 
@@ -309,12 +313,13 @@ router.post('/login', async (req, res) => {
                 id: user._id,
                 username: user.username,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                fullName: user.fullName
             }
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error' });
+        console.error('Login error:', err);
+        res.status(500).json({ message: 'Server error during login. Please try again.' });
     }
 });
 

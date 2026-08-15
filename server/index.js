@@ -1,3 +1,8 @@
+const dns = require('dns');
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -43,6 +48,16 @@ app.use((req, res, next) => {
     next();
 });
 
+// Database Connection Middleware check
+app.use('/api', (req, res, next) => {
+    if (req.path === '/health') return next();
+    if (mongoose.connection.readyState !== 1) {
+        console.warn('⚠️ Request received but Database is not connected yet.');
+        return res.status(503).json({ message: 'Database connection in progress or unavailable. Please try again in a moment.' });
+    }
+    next();
+});
+
 // Basic Route to check if server is running
 app.get('/', (req, res) => {
     res.send('Mini Power BI API is running... [v3.1]');
@@ -52,44 +67,63 @@ app.get('/', (req, res) => {
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'UP',
+        dbStatus: mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED',
         version: '2.2',
         timestamp: new Date().toISOString()
     });
 });
 
-// Connect to MongoDB & Start Server
-const startServer = async () => {
+// Routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/data', require('./routes/data'));
+
+// Start Express Server
+app.listen(PORT, () => {
+    console.log(`🚀 Server is running on http://localhost:${PORT}`);
+    console.log(`Timestamp: ${new Date().toISOString()}`);
+});
+
+// Connect to MongoDB with fallback
+const connectDB = async () => {
     try {
         if (!process.env.MONGO_URI) {
             throw new Error('MONGO_URI is not defined in .env file');
         }
 
-        console.log('⏳ Connecting to MongoDB...');
+        console.log('⏳ Connecting to primary MongoDB Atlas...');
         await mongoose.connect(process.env.MONGO_URI, {
-            serverSelectionTimeoutMS: 5000, // Timeout after 5s if unable to reach server
+            serverSelectionTimeoutMS: 3000,
         });
 
-        console.log('✅ MongoDB Connected');
+        console.log('✅ MongoDB Connected to Cloud Atlas!');
         console.log('Database Name:', mongoose.connection.name);
 
-        // Start the server only after DB connection
-        app.listen(PORT, () => {
-            console.log(`🚀 [DEBUG MODE V2] Server is running on http://localhost:${PORT}`);
-            console.log(`Timestamp: ${new Date().toISOString()}`);
-        });
-
     } catch (err) {
-        console.error('❌ MongoDB Connection Error:', err.message);
-        console.error('Possible fixes:');
-        console.error('1. Check your MONGO_URI in .env');
-        console.error('2. Ensure your IP is whitelisted in MongoDB Atlas');
-        console.error('3. Check your internet connection');
-        process.exit(1); // Exit if connection fails
+        console.error('⚠️ Primary MongoDB Atlas Connection Failed:', err.message);
+        
+        try {
+            console.log('⏳ Attempting connection to local MongoDB (127.0.0.1)...');
+            await mongoose.connect('mongodb://127.0.0.1:27017/mini_power_bi', {
+                serverSelectionTimeoutMS: 2000,
+            });
+            console.log('✅ Connected to Local MongoDB (127.0.0.1) successfully!');
+        } catch (localErr) {
+            console.log('⏳ Local MongoDB not found. Initializing MongoMemoryServer fallback...');
+            try {
+                const { MongoMemoryServer } = require('mongodb-memory-server');
+                const mongoServer = await MongoMemoryServer.create();
+                const mongoUri = mongoServer.getUri();
+
+                await mongoose.connect(mongoUri);
+                console.log('✅ Connected to In-Memory MongoDB Fallback successfully!');
+                console.log('URI:', mongoUri);
+            } catch (fallbackErr) {
+                console.error('❌ Fallback MongoDB Connection Error:', fallbackErr.message);
+                console.error('Retrying primary connection in 10 seconds...');
+                setTimeout(connectDB, 10000);
+            }
+        }
     }
 };
 
-// Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/data', require('./routes/data'));
-
-startServer();
+connectDB();
